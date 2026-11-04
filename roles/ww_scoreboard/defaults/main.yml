@@ -1,0 +1,321 @@
+---
+# ww_scoreboard — CTF scoring app for the WaterWorks Pipeline range (host ww-score).
+#
+# Flag VALUES are never defined here: they come from range.yaml
+# global_role_vars.ww_flags and are hashed (sha256) at deploy time.
+
+ww_scoreboard_service: ww-scoreboard
+ww_scoreboard_user: wwscore
+ww_scoreboard_group: wwscore
+
+ww_scoreboard_app_dir: /opt/ww-scoreboard
+ww_scoreboard_conf_dir: /etc/ww-scoreboard
+ww_scoreboard_data_dir: /var/lib/ww-scoreboard
+
+ww_scoreboard_listen_host: "0.0.0.0"
+ww_scoreboard_port: 80
+ww_scoreboard_threads: 8
+
+ww_scoreboard_title: "WaterWorks Pipeline — Red Team Operations Scoreboard"
+ww_scoreboard_registration_open: true
+ww_scoreboard_hint_cost_pct: 10          # % of challenge points charged per unlocked hint
+ww_scoreboard_rate_limit_wrong: 10       # wrong submissions allowed per team ...
+ww_scoreboard_rate_limit_window_s: 60    # ... per this many seconds
+
+# Shown on the Rules of Engagement page.
+ww_scoreboard_net: "{{ ww_net | default('10.X') }}"
+ww_scoreboard_event_hold_s: "{{ ww_plc_event_hold_s | default(600) }}"
+
+# Admin login (user "admin"). Only its sha256 is written to the host.
+# Expected from range.yaml global_role_vars:
+# ww_scoreboard_admin_password: ""
+
+# ---------------------------------------------------------------------------
+# Challenge catalogue. `key` must match a key in ww_flags.
+# Impact entries are deliberately minimal placeholders: the exercise
+# operator supplies their own briefing text for those objectives.
+# ---------------------------------------------------------------------------
+ww_scoreboard_challenges:
+  - key: web_recon
+    title: "Pre-Launch Leftovers"
+    category: Recon
+    points: 50
+    host: "ww-web01 ({{ ww_scoreboard_net }}.10.10)"
+    description: >-
+      WaterWorks Pipeline Co. publishes its public website and the member-town
+      contractor portal from ww-web01, the only corporate server exposed to the
+      internet. Web teams always leave something behind after a launch. Map the
+      public site the way a search-engine crawler would and find the area the
+      developers hoped nobody would index.
+    hints:
+      - "Well-behaved crawlers are told where NOT to go."
+      - "Developers leave notes in places a browser does not render."
+
+  - key: web_lfi
+    title: "Consumer Confidence"
+    category: Initial Access
+    points: 100
+    host: "ww-web01 ({{ ww_scoreboard_net }}.10.10)"
+    description: >-
+      Member towns download their annual Consumer Confidence Reports from the
+      contractor portal. The download handler trusts the requested file name a
+      little too much. Read the portal application's own configuration: the
+      flag sits next to the secret that keeps portal sessions honest.
+    hints:
+      - "Watch how report downloads are requested."
+      - "The application lives under /opt; many web apps keep configuration in a dotfile."
+
+  - key: web_rce
+    title: "Public Notice"
+    category: Initial Access
+    points: 150
+    host: "ww-web01 ({{ ww_scoreboard_net }}.10.10)"
+    description: >-
+      Portal administrators can preview the public notice banner before it
+      goes live on the website. Using what you learned about the portal,
+      become an administrator, turn the notice preview into code execution,
+      and read the flag in the web service account's home directory.
+    hints:
+      - "Flask session cookies are signed, not encrypted. Who else knows the key?"
+      - "What happens if the preview contains template arithmetic?"
+
+  - key: web_root
+    title: "DMZ Root"
+    category: Privilege Escalation
+    points: 150
+    host: "ww-web01 ({{ ww_scoreboard_net }}.10.10)"
+    description: >-
+      You have a shell as the web service account on ww-web01. The admins made
+      website syncing convenient. Escalate to root and read /root/flag.txt.
+    hints:
+      - "Check what this account may run with elevated privileges."
+      - "Some file-copy tools can run arbitrary commands."
+
+  - key: it_root
+    title: "Housekeeping"
+    category: Privilege Escalation
+    points: 150
+    host: "ww-it01 ({{ ww_scoreboard_net }}.20.20)"
+    description: >-
+      The IT manager automates routine housekeeping on the IT administration
+      server, and the helpdesk was given a hand in maintaining it. Escalate to
+      root on ww-it01 and read /root/flag.txt.
+    hints:
+      - "Look at what runs on a schedule and who can modify it."
+      - "Group membership matters as much as file ownership."
+
+  - key: eng_root
+    title: "Project Backup"
+    category: Privilege Escalation
+    points: 250
+    host: "ww-eng01 ({{ ww_scoreboard_net }}.40.20)"
+    description: >-
+      The controls engineering workstation holds the project files for the
+      whole system. The integrator can log in remotely, but the interesting
+      material is root-only. Escalate to root on ww-eng01 and read
+      /root/flag.txt.
+    hints:
+      - "Look for privileged binaries that are not part of a stock install."
+      - "How does that binary locate the programs it calls?"
+
+  - key: fs_engineering
+    title: "Report Sync"
+    category: Lateral Movement
+    points: 150
+    host: "ww-fs01 ({{ ww_scoreboard_net }}.20.10)"
+    description: >-
+      Reports reach the website from the corporate file server through a
+      service account that can see far more than the reports share. Reach
+      ww-fs01 and find the engineering network overview document. The flag is
+      the document's control ID.
+    hints:
+      - "Network file mounts need credentials stored somewhere on the web server."
+      - "The firewall lets the DMZ web server talk SMB to exactly one corporate host."
+
+  - key: it_spray
+    title: "New Hire Onboarding"
+    category: Lateral Movement
+    points: 150
+    host: "ww-it01 ({{ ww_scoreboard_net }}.20.20)"
+    description: >-
+      WaterWorks Pipeline recently hired a helpdesk technician, and IT
+      onboarding at small utilities tends to be predictable. Log in to ww-it01
+      as the new hire and read the flag in their home directory.
+    hints:
+      - "The file server has an IT helpdesk area anyone can read."
+      - "Combine the onboarding checklist with the staff directory."
+
+  - key: jump_vendor
+    title: "Vendor Remote Support"
+    category: Lateral Movement
+    points: 200
+    host: "ww-jump01 ({{ ww_scoreboard_net }}.30.20)"
+    description: >-
+      ww-jump01 is the only sanctioned path from corporate IT into OT, and the
+      IT manager keeps a key to it. Once inside, the integrator's support
+      account is the real prize. Become the vendor account and read its flag.
+    hints:
+      - "Root on the IT server can read other users' SSH material."
+      - "Check what you may run as other users. Pagers can do more than page."
+
+  - key: hist_sqli
+    title: "Trend Analysis"
+    category: OT DMZ
+    points: 200
+    host: "ww-hist01 ({{ ww_scoreboard_net }}.30.10:8080)"
+    description: >-
+      AquaHistorian on ww-hist01 is reachable from the corporate office so
+      staff can view trends. The vendor default login gets you read-only
+      charts. Extract the audit token from the historian's system
+      configuration.
+    hints:
+      - "Trend queries take a tag name. What does the database do with it?"
+      - "One table holds system configuration."
+
+  - key: hmi_access
+    title: "Control Room"
+    category: OT Access
+    points: 200
+    host: "ww-hmi01 ({{ ww_scoreboard_net }}.40.10)"
+    description: >-
+      The AquaView HMI on ww-hmi01 is the control room's window into the
+      system. Operators share a login and the integrator keeps remote console
+      access. Get onto the HMI and read the operators' shift log.
+    hints:
+      - "The vendor account's notes and remote-desktop configuration are worth reading."
+      - "VNC passwords are stored obfuscated with a well-known fixed key."
+
+  - key: plc01_devid
+    title: "Who Goes There?"
+    category: OT Recon
+    points: 150
+    host: "ww-plc01 ({{ ww_scoreboard_net }}.50.10)"
+    description: >-
+      Intake PS-1 is run by a Modicon M340-profile PLC. Fingerprint it before
+      anything else: controllers say a lot about themselves when asked in
+      their own protocol. The flag is part of the controller's application
+      identity.
+    hints:
+      - "Modbus has a function code just for device identification."
+      - "Basic identification objects are not the only ones."
+
+  - key: plc02_pcom
+    title: "Commissioning Notes"
+    category: OT Recon
+    points: 200
+    host: "ww-plc02 ({{ ww_scoreboard_net }}.50.20)"
+    description: >-
+      The WTP PLC is a Unitronics Vision-profile controller. Only part of its
+      memory is exposed over Modbus, and the commissioning engineer left a
+      note somewhere the SCADA system never polls. Find it.
+    hints:
+      - "Unitronics controllers speak their own engineering protocol alongside Modbus."
+      - "Memory exists well beyond the Modbus-mapped range."
+
+  - key: impact_drypump
+    title: "Run the Intake Dry"
+    category: Impact
+    points: 300
+    host: "ww-plc01 ({{ ww_scoreboard_net }}.50.10)"
+    description: >-
+      The Cedar River intake pumps are protected against running dry by a
+      wet-well low-low interlock — a vertical turbine pump that runs without
+      submergence cavitates and destroys its bowl assembly in seconds. Defeat
+      the protection, take manual control, and run a pump dry long enough to
+      wreck it. The controller records the damage.
+    hints:
+      - "The low-low protection is a coil you can clear. Pumps only obey you in HAND mode."
+      - "With the protection off and inflow starved, hold the pump running until the bowls go."
+
+  - key: impact_naoh
+    title: "Caustic Overdose"
+    category: Impact
+    points: 300
+    host: "ww-plc02 ({{ ww_scoreboard_net }}.50.20)"
+    description: >-
+      Cedar Ridge WTP doses sodium hydroxide (caustic soda) to raise finished-water
+      pH. A high-pH interlock cuts the dosing pump off before the water becomes
+      dangerous. Disable that interlock and drive the finished-water pH into
+      corrosive territory the way Oldsmar's attacker tried to — then hold it.
+      The field controller latches the event when the water leaving the plant
+      crosses the line.
+    hints:
+      - "The HMI will not let you enter an absurd setpoint. The PLC will — and the HIHI cutout is a coil."
+      - "Push the dose far past the operating range and keep it there for a few seconds."
+
+  - key: impact_deface
+    title: "Message on the Panel"
+    category: Impact
+    points: 250
+    host: "ww-plc02 ({{ ww_scoreboard_net }}.50.20)"
+    description: >-
+      The operator panel at the chemical-feed PLC shows a plant identification
+      banner stored in controller memory. Overwrite it. Proving you can rewrite
+      what the operators see on the plant floor is a classic operational-impact
+      demonstration — no process harm required.
+    hints:
+      - "The banner is an ASCII string living in a block of memory registers."
+      - "Two characters per register, high byte first. Write your own text over it."
+
+  - key: impact_overflow
+    title: "Overflow the Summit Tank"
+    category: Impact
+    points: 300
+    host: "ww-rtu03 ({{ ww_scoreboard_net }}.50.30)"
+    description: >-
+      Hilltop Booster PS-3 fills the Summit elevated storage tank. A high-level
+      cutoff stops the booster pumps before the tank overtops. Bypass the RTU's
+      protections, force the pumps to run, and overflow the tank — spilling
+      treated water and risking the distribution system.
+    hints:
+      - "The RTU restores its protective settings every scan unless you put it in maintenance mode first."
+      - "With the high-level cutoff defeated and pumps forced on in HAND, the level keeps climbing."
+
+  - key: impact_mainbreak
+    title: "Rupture the Transmission Main"
+    category: Impact
+    points: 500
+    host: "ww-rtu03 ({{ ww_scoreboard_net }}.50.30)"
+    description: >-
+      The 16-inch transmission main runs from Hilltop up to Summit Tank, crossing
+      the 1962 cast-iron pipe at Miller Creek. Slamming a valve shut against moving
+      water creates a pressure transient — water hammer — that can burst an old
+      main. The engineering team added a surge-anticipator valve, a high-pressure
+      pump trip, and a valve slew-rate limit for exactly this reason. Defeat all
+      of them and induce a transient hard enough to rupture the crossing. This is
+      the hardest and highest-impact objective; the RTU tells you when the main
+      breaks.
+    hints:
+      - "Read the 2019 Hilltop surge study on the engineering workstation — it is the attacker's playbook."
+      - "You need maintenance mode, the SAV disarmed, the HP trip off, a fast valve slew, pumps running — then close FCV-301 fast."
+
+  - key: intel_oldsmar
+    title: "Oldsmar, 2021"
+    category: Intel
+    points: 50
+    host: "case study"
+    description: >-
+      From the case study: in the February 2021 Oldsmar, FL incident, to what
+      sodium hydroxide level (ppm) did the intruder attempt to change the
+      setpoint? Answer format WTR{digits}, e.g. WTR{1234}. Not case-sensitive.
+    hints: []
+
+  - key: intel_pcom
+    title: "Know Your Protocols"
+    category: Intel
+    points: 50
+    host: "case study"
+    description: >-
+      From the case study: what TCP port does the Unitronics PCOM protocol use
+      by default? Answer format WTR{port}. Not case-sensitive.
+    hints: []
+
+  - key: intel_attack
+    title: "Speak the Framework"
+    category: Intel
+    points: 50
+    host: "case study"
+    description: >-
+      From the case study: what is the MITRE ATT&CK for ICS technique ID for
+      "Modify Parameter"? Answer format WTR{T####}. Not case-sensitive.
+    hints: []

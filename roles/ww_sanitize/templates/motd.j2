@@ -1,0 +1,14 @@
+
+========================================================================
+  {{ ww_org_name | default('WaterWorks Pipeline Co.') }} — {{ ww_motd_role | default('Managed System') }}
+  Host: {{ inventory_hostname }}
+
+  *** AUTHORIZED USE ONLY ***
+  This system is the property of {{ ww_org_name | default('WaterWorks Pipeline Co.') }}
+  and is for authorized business use only. All activity is logged and
+  monitored. Unauthorized access is prohibited and may be reported to
+  law enforcement. Disconnect now if you are not an authorized user.
+
+  Asset: {{ ww_sanitize_hw_manufacturer }} {{ ww_sanitize_hw_product }}
+  Support: ithelpdesk@{{ ww_domain | default('waterworkspipeline.com') }}  x4357
+========================================================================

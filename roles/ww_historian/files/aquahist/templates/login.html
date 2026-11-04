@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+<div class="login-wrap">
+  <form class="card login" method="post" autocomplete="off">
+    <h1>AquaHistorian {{ major_minor }}</h1>
+    <p class="muted">{{ site_name }} &mdash; Process Data Historian</p>
+    {% if error %}<div class="alert bad">{{ error }}</div>{% endif %}
+    <label>Username <input name="username" required autofocus></label>
+    <label>Password <input name="password" type="password" required></label>
+    <button type="submit">Sign in</button>
+    <p class="note">Guest access: guest / guest (read-only)</p>
+  </form>
+  <p class="muted small center">Authorized users only. Activity on this system is logged.</p>
+</div>
+{% endblock %}

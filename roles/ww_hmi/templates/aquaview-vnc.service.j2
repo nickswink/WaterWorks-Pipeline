@@ -1,0 +1,17 @@
+[Unit]
+Description=AquaView remote operator VNC console (x11vnc :{{ ww_hmi_vnc_port - 5900 }})
+After=aquaview-xvfb.service
+Requires=aquaview-xvfb.service
+
+[Service]
+Type=simple
+User={{ ww_hmi_vnc_user }}
+Group={{ ww_hmi_vnc_user }}
+Environment=DISPLAY={{ ww_hmi_vnc_display }}
+Environment=HOME=/home/{{ ww_hmi_vnc_user }}
+ExecStart={{ ww_hmi_app_dir }}/vnc-session.sh
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+---
+galaxy_info:
+  author: risk3sixty
+  description: WaterWorks Pipeline CTF scoreboard (Flask + SQLite served by waitress)
+  license: proprietary
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+dependencies: []

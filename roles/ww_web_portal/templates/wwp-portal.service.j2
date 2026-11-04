@@ -1,0 +1,18 @@
+[Unit]
+Description={{ ww_org_name }} public portal (Flask/waitress)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ wwp_web_user }}
+Group={{ wwp_web_user }}
+WorkingDirectory={{ wwp_app_dir }}
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/waitress-serve --listen=127.0.0.1:8000 --threads=4 app:app
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=false
+
+[Install]
+WantedBy=multi-user.target

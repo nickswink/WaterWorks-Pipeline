@@ -1,0 +1,38 @@
+site,controller,table,proto_addr,doc_addr,fc,tag,units,default,protective,notes
+booster,SCADAPack474,coil,0,00001,01/05/15,P301_HAND_RUN,bool,0,,
+booster,SCADAPack474,coil,1,00002,01/05/15,P302_HAND_RUN,bool,0,,
+booster,SCADAPack474,coil,10,00011,01/05/15,HP_TRIP_EN,bool,1,YES,high-discharge-pressure trip
+booster,SCADAPack474,coil,11,00012,01/05/15,HL_CUTOFF_EN,bool,1,YES,tank high-level pump cutoff
+booster,SCADAPack474,coil,12,00013,01/05/15,SAV_ARMED,bool,1,YES,SAV-301 surge anticipator
+booster,SCADAPack474,coil,13,00014,01/05/15,ALARM_RESET,bool,0,,momentary
+booster,SCADAPack474,di,0,10001,02,P301_RUNNING,bool,,,
+booster,SCADAPack474,di,1,10002,02,P302_RUNNING,bool,,,
+booster,SCADAPack474,di,2,10003,02,HP_TRIP_ACTIVE,bool,,,
+booster,SCADAPack474,di,3,10004,02,TANK_HH,bool,,,
+booster,SCADAPack474,di,4,10005,02,TANK_OVERFLOW,bool,,,
+booster,SCADAPack474,di,5,10006,02,SAV_OPEN,bool,,,
+booster,SCADAPack474,di,6,10007,02,MAINT_BYPASS_ACTIVE,bool,,,
+booster,SCADAPack474,di,7,10008,02,MAIN_BREAK,bool,,,
+booster,SCADAPack474,ir,0,30001,04,SUCTION_PRESS,psi x10,450,,
+booster,SCADAPack474,ir,1,30002,04,DISCH_PRESS,psi x10,,,incl transient
+booster,SCADAPack474,ir,2,30003,04,FLOW,gpm,,,
+booster,SCADAPack474,ir,3,30004,04,FCV301_POS,% x10,,,
+booster,SCADAPack474,ir,4,30005,04,TANK_LEVEL,ft x100,2800,,
+booster,SCADAPack474,ir,5,30006,04,TANK_DEMAND,gpm,,,
+booster,SCADAPack474,ir,6,30007,04,PEAK_TRANSIENT_60S,psi x10,,,
+booster,SCADAPack474,ir,7,30008,04,MAINT_LOCKOUT_S,s,,,
+booster,SCADAPack474,hr,0,40001,03/06/16,P301_MODE,enum,2,,0 OFF/1 HAND/2 AUTO
+booster,SCADAPack474,hr,1,40002,03/06/16,P302_MODE,enum,2,,0 OFF/1 HAND/2 AUTO
+booster,SCADAPack474,hr,2,40003,03/06/16,FCV301_SP,% x10,1000,,
+booster,SCADAPack474,hr,3,40004,03/06/16,FCV301_SLEW,%/s x10,20,YES,valve stroke-rate limit
+booster,SCADAPack474,hr,10,40011,03/06/16,LEAD_START,ft x100,2200,,
+booster,SCADAPack474,hr,11,40012,03/06/16,LEAD_STOP,ft x100,3300,,
+booster,SCADAPack474,hr,12,40013,03/06/16,LAG_START,ft x100,1900,,
+booster,SCADAPack474,hr,13,40014,03/06/16,HL_CUTOFF_SP,ft x100,3500,YES,
+booster,SCADAPack474,hr,14,40015,03/06/16,HP_TRIP_SP,psi x10,1400,YES,
+booster,SCADAPack474,hr,20,40021,06/16,MAINT_KEY,key,,,write key->maint mode 900s; reads 0
+booster,SCADAPack474,hr,21,40022,03,MAINT_MODE,bool,0,,read only
+booster,SCADAPack474,hr,22,40023,03,MAINT_TIMER,s,,,read only
+booster,SCADAPack474,hr,100,40101,03,HEARTBEAT,counter,,,
+booster,SCADAPack474,hr,9000,49001,03/16,EVENT_A_TEXT,ascii,,,overflow (24 regs)
+booster,SCADAPack474,hr,9032,49033,03/16,EVENT_B_TEXT,ascii,,,main break (24 regs)

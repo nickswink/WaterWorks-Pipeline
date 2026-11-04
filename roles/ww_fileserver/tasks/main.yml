@@ -1,0 +1,200 @@
+---
+- name: Assert required range-wide variables are defined
+  ansible.builtin.assert:
+    that:
+      - ww_flags is defined
+      - ww_flags.fs_engineering is defined
+      - ww_net is defined
+      - ww_ccrsync_password is defined
+      - ww_org_name is defined
+      - ww_domain is defined
+    fail_msg: "ww_fileserver requires the WaterWorks global_role_vars (ww_flags, ww_net, ww_ccrsync_password, ...)."
+    quiet: true
+
+- name: Install Samba and supporting packages
+  ansible.builtin.apt:
+    name:
+      - samba
+      - samba-common-bin
+      - smbclient
+      - acl
+      - openssh-server
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# ---------------------------------------------------------------------------
+#  Groups and accounts
+# ---------------------------------------------------------------------------
+- name: Create share groups
+  ansible.builtin.group:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ ww_fs_groups }}"
+
+- name: Create Linux accounts for file share users (no interactive login)
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    comment: "{{ item.comment }}"
+    shell: /usr/sbin/nologin
+    create_home: false
+    home: "/nonexistent"
+    groups: "{{ item.groups }}"
+    append: false
+    password: "{{ item.password | password_hash('sha512', item.salt) }}"
+    update_password: always
+    state: present
+  loop: "{{ ww_fs_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+
+- name: List existing Samba accounts
+  ansible.builtin.command: pdbedit -L
+  register: ww_fs_pdbedit
+  changed_when: false
+  failed_when: false
+
+- name: Add missing Samba accounts
+  ansible.builtin.command:
+    cmd: "smbpasswd -s -a {{ item.name }}"
+    stdin: "{{ item.password }}\n{{ item.password }}"
+  loop: "{{ ww_fs_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.name not in (ww_fs_pdbedit.stdout_lines | default([]) | map('regex_replace', ':.*$', '') | list)
+  no_log: true
+  changed_when: true
+
+# ---------------------------------------------------------------------------
+#  Share directories and content
+# ---------------------------------------------------------------------------
+- name: Create share root
+  ansible.builtin.file:
+    path: "{{ ww_fs_share_root }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create share directories
+  ansible.builtin.file:
+    path: "{{ ww_fs_share_root }}/{{ item.dir }}"
+    state: directory
+    owner: root
+    group: "{{ item.group }}"
+    mode: "{{ item.dir_mode }}"
+  loop: "{{ ww_fs_shares }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Create share subdirectories
+  ansible.builtin.file:
+    path: "{{ ww_fs_share_root }}/{{ item.dir }}/{{ item.sub }}"
+    state: directory
+    owner: root
+    group: "{{ ww_fs_share_map[item.dir].group }}"
+    mode: "{{ ww_fs_share_map[item.dir].dir_mode }}"
+  loop: "{{ ww_fs_subdirs }}"
+  loop_control:
+    label: "{{ item.dir }}/{{ item.sub }}"
+  vars:
+    ww_fs_share_map: "{{ dict(ww_fs_shares | map(attribute='dir') | zip(ww_fs_shares)) }}"
+    ww_fs_subdirs:
+      - { dir: Public, sub: CCR }
+      - { dir: Public, sub: Newsletters }
+      - { dir: Public, sub: Board }
+      - { dir: Public, sub: IT_Helpdesk }
+      - { dir: Engineering, sub: Network }
+      - { dir: Engineering, sub: SCADA }
+      - { dir: Engineering, sub: SCADA/Security_Advisories }
+      - { dir: Engineering, sub: Projects }
+      - { dir: HR, sub: Benefits }
+      - { dir: IT, sub: Runbooks }
+
+- name: Deploy share documents
+  ansible.builtin.template:
+    src: "shares/{{ item.dir }}/{{ item.path }}.j2"
+    dest: "{{ ww_fs_share_root }}/{{ item.dir }}/{{ item.path }}"
+    owner: root
+    group: "{{ ww_fs_share_map[item.dir].group }}"
+    mode: "{{ ww_fs_share_map[item.dir].file_mode }}"
+  loop: "{{ ww_fs_documents }}"
+  loop_control:
+    label: "{{ item.dir }}/{{ item.path }}"
+  vars:
+    ww_fs_share_map: "{{ dict(ww_fs_shares | map(attribute='dir') | zip(ww_fs_shares)) }}"
+    ww_fs_documents:
+      # Public
+      - { dir: Public, path: CCR/README_Website_Publishing.txt }
+      - { dir: Public, path: CCR/2024_Annual_Water_Quality_Report_CCR.txt }
+      - { dir: Public, path: CCR/2025_Annual_Water_Quality_Report_CCR.txt }
+      - { dir: Public, path: Newsletters/The_Pipeline_2026_Q2.txt }
+      - { dir: Public, path: Newsletters/The_Pipeline_2026_Q3.txt }
+      - { dir: Public, path: Board/2026-04-16_Board_Minutes.txt }
+      - { dir: Public, path: Board/2026-08-20_Board_Minutes.txt }
+      - { dir: Public, path: Staff_Directory.csv }
+      - { dir: Public, path: IT_Helpdesk/New_Hire_IT_Checklist.txt }
+      - { dir: Public, path: IT_Helpdesk/VPN_and_Remote_Access_FAQ.txt }
+      # Engineering
+      - { dir: Engineering, path: Network/WWP_Network_Overview.txt }
+      - { dir: Engineering, path: SCADA/OT_Remote_Access_SOP.txt }
+      - { dir: Engineering, path: SCADA/System_Description.txt }
+      - { dir: Engineering, path: SCADA/Security_Advisories/CISA_AA23-335A_Action_Tracker.txt }
+      - { dir: Engineering, path: Projects/Hilltop_Surge_Study_2019_SUMMARY.txt }
+      # HR
+      - { dir: HR, path: Benefits/2027_Open_Enrollment_Notice.txt }
+      - { dir: HR, path: Personnel_Action_Log_2026.csv }
+      # IT$
+      - { dir: IT, path: Runbooks/Server_Patching_Runbook.txt }
+      - { dir: IT, path: Runbooks/Account_Provisioning_Runbook.txt }
+      - { dir: IT, path: Runbooks/Backup_and_Restore_Runbook.txt }
+
+# eng_ro (svc_ccrsync) gets read-only access to Engineering through a POSIX
+# ACL, with matching default ACLs so new files inherit it. The check compares
+# the ACL dump before/after so the task only reports a change when needed.
+- name: Grant eng_ro read access to Engineering (POSIX ACL)
+  ansible.builtin.shell: |
+    set -eu
+    d="{{ ww_fs_share_root }}/Engineering"
+    before="$(getfacl -R -p "$d" 2>/dev/null | sha256sum)"
+    setfacl -R -m g:eng_ro:rX "$d"
+    find "$d" -type d -exec setfacl -d -m g:engineering:rwX,g:eng_ro:rX {} +
+    after="$(getfacl -R -p "$d" 2>/dev/null | sha256sum)"
+    if [ "$before" = "$after" ]; then echo UNCHANGED; else echo CHANGED; fi
+  args:
+    executable: /bin/bash
+  register: ww_fs_acl
+  changed_when: "'CHANGED' in ww_fs_acl.stdout"
+
+# ---------------------------------------------------------------------------
+#  Samba configuration
+# ---------------------------------------------------------------------------
+- name: Deploy smb.conf
+  ansible.builtin.template:
+    src: smb.conf.j2
+    dest: /etc/samba/smb.conf
+    owner: root
+    group: root
+    mode: "0644"
+    validate: "testparm -s %s"
+  notify: Restart smbd
+
+- name: Disable NetBIOS name service (SMB2+ only, no browsing)
+  ansible.builtin.systemd:
+    name: nmbd
+    state: stopped
+    enabled: false
+  failed_when: false
+
+- name: Ensure smbd is enabled and running
+  ansible.builtin.systemd:
+    name: smbd
+    state: started
+    enabled: true
+
+- name: Ensure SSH is enabled and running
+  ansible.builtin.systemd:
+    name: ssh
+    state: started
+    enabled: true

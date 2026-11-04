@@ -1,0 +1,26 @@
+---
+# Service account that runs the Flask/waitress app.
+wwp_web_user: wwp-web
+wwp_web_home: /home/wwp-web
+
+# Application layout (root-owned code, readable by the service account).
+wwp_app_dir: /opt/wwp-portal
+
+# Contractor/staff portal administrator. The password is long and random and is
+# not intended to be cracked; only its hash is written to the app's .env. The
+# intended path to admin is forging a signed session with the leaked SECRET_KEY.
+ww_webadmin_password: "Rr8$kP2m!vQ7xL4wZ1nT6yB9cF3dH5s"
+ww_webadmin_password_hash: "pbkdf2:sha256:1000000$pCae6UP1J2wJOSc7$f1e0cbf774bec7b714cb6bf845fbabd2ddcaecaf97647c73dc069cc5d54c5810"
+
+# CIFS mount used by the nightly CCR sync (corporate file share on VLAN 20).
+wwp_ccr_mount: /mnt/ccr
+wwp_ccr_share: "//{{ ww_net }}.20.10/Public/CCR"
+
+# apt packages this role installs.
+wwp_apt_packages:
+  - python3-flask
+  - python3-waitress
+  - nginx
+  - cifs-utils
+  - rsync
+  - sudo

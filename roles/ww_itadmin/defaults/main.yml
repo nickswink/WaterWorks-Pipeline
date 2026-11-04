@@ -1,0 +1,56 @@
+---
+# ww_itadmin - WWP IT administration server (ww-it01)
+#
+# Shared values (ww_net, ww_flags, ww_newhire_password, ww_org_name,
+# ww_domain) come from the range-wide variables and are NOT redefined here.
+
+ww_it_scripts_dir: /opt/it-scripts
+ww_it_backup_dir: /var/backups/it
+ww_it_backup_log: /var/log/it-config-backup.log
+
+# Passwords for accounts that are not part of the intended attack path.
+# Deliberately long and random; not meant to be cracked.
+ww_it_dwhitfield_password: "nF4!yQ8r#Tz2vLm6Ka9w"
+ww_it_ktran_password: "Rb7%cJ3x!Wq5mHd8Zs2p"
+ww_it_spatel_password: "Gm2#uV6k@Px9tCe4Nw7h"
+
+ww_it_groups:
+  - helpdesk
+  - itstaff
+
+# `salt` is fixed per user so the SHA-512 hash is stable (idempotent runs).
+ww_it_users:
+  - name: j.alvarez
+    comment: "Jordan Alvarez,IT Helpdesk,x4117"
+    password: "{{ ww_newhire_password }}"
+    salt: "wwit01jalvarez26"
+    groups: [helpdesk]
+  - name: d.whitfield
+    comment: "Dana Whitfield,IT Manager,x4102"
+    password: "{{ ww_it_dwhitfield_password }}"
+    salt: "wwit01dwhitfield"
+    groups: [itstaff, helpdesk]
+  - name: k.tran
+    comment: "Kevin Tran,Systems Administrator,x4105"
+    password: "{{ ww_it_ktran_password }}"
+    salt: "wwit01ktran00001"
+    groups: [itstaff, adm]
+  - name: s.patel
+    comment: "Sonia Patel,Business Applications,x4108"
+    password: "{{ ww_it_spatel_password }}"
+    salt: "wwit01spatel0001"
+    groups: [helpdesk]
+
+# Admin tooling present on the box (no scanners on purpose).
+ww_it_packages:
+  - openssh-server
+  - openssh-client
+  - smbclient
+  - curl
+  - jq
+  - rsync
+  - sqlite3
+  - cron
+  - less
+  - vim-tiny
+  - nano

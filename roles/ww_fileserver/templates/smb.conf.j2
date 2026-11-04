@@ -1,0 +1,80 @@
+# {{ ansible_managed | default('Managed by configuration management') }}
+#
+# WWP File Services - ww-fs01
+# Standalone server (no domain). Accounts are local tdbsam users.
+# Share access is controlled by Unix groups - see IT$\Runbooks\Account_Provisioning_Runbook.txt
+
+[global]
+   workgroup = {{ ww_fs_workgroup }}
+   server string = {{ ww_fs_server_string }}
+   netbios name = {{ ww_fs_netbios_name }}
+   server role = standalone server
+   security = user
+   passdb backend = tdbsam
+   map to guest = never
+   restrict anonymous = 2
+   server min protocol = SMB2
+   disable netbios = yes
+   smb ports = 445
+   dns proxy = no
+
+   log file = /var/log/samba/log.%m
+   max log size = 1000
+   logging = file
+   log level = 1 auth_audit:2
+
+   load printers = no
+   printing = bsd
+   printcap name = /dev/null
+   disable spoolss = yes
+
+   unix password sync = no
+   obey pam restrictions = no
+   usershare allow guests = no
+   inherit permissions = no
+
+[Public]
+   comment = WWP company-wide documents (CCR, newsletters, board, helpdesk)
+   path = {{ ww_fs_share_root }}/Public
+   browseable = yes
+   guest ok = no
+   read only = yes
+   write list = @itstaff @wq
+   force group = public_rw
+   create mask = 0664
+   directory mask = 2775
+
+[Engineering]
+   comment = Engineering / SCADA documentation
+   path = {{ ww_fs_share_root }}/Engineering
+   browseable = yes
+   guest ok = no
+   valid users = @engineering @eng_ro
+   read only = yes
+   write list = @engineering
+   inherit acls = yes
+   force group = engineering
+   create mask = 0660
+   directory mask = 2770
+
+[HR]
+   comment = Human Resources (restricted)
+   path = {{ ww_fs_share_root }}/HR
+   browseable = yes
+   guest ok = no
+   valid users = @hr
+   read only = no
+   force group = hr
+   create mask = 0660
+   directory mask = 2770
+
+[IT$]
+   comment = IT department
+   path = {{ ww_fs_share_root }}/IT
+   browseable = no
+   guest ok = no
+   valid users = @itstaff
+   read only = no
+   force group = itstaff
+   create mask = 0660
+   directory mask = 2770

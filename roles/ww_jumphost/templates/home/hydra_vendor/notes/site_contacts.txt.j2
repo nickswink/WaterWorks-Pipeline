@@ -1,0 +1,28 @@
+Hydra Controls Integration LLC - Cedar Ridge site contacts & access notes
+=========================================================================
+Customer: {{ ww_org_name }}
+Site: Cedar Ridge Regional Transmission System
+
+Control room / operations contacts
+----------------------------------
+  Priya Raman    - Control Room Operator (lead)   x4203
+  Tom Kessler    - Plant Superintendent            x4201
+  Marcus Oyelaran- SCADA / Controls Engineer       x4208  (owns PLC projects, ww-eng01)
+  Ray Castillo   - Field Technician, Pump Stations x4211
+
+Remote support access (from this jump host, ww-jump01)
+------------------------------------------------------
+  ENG WS   ww-eng01  {{ ww_net }}.40.20  ssh - our vendor key (~/.ssh/id_ed25519)
+  HMI      ww-hmi01  {{ ww_net }}.40.10  web :80 / VNC :5900
+
+HMI / control-room logins (per customer; keep internal)
+-------------------------------------------------------
+  Operator HMI shared login: controlroom / {{ ww_controlroom_password }}  (VNC password {{ ww_vnc_password }} - binder)
+
+  Notes:
+   - The "controlroom" login is shared by all operators for the AquaView HMI web UI
+     and the Shift Log page. Priya asked us not to change it mid-shift.
+   - VNC to the HMI uses the same base password truncated by the VNC client
+     (8-char limit). Written in the control-room binder on the desk.
+   - Field PLCs/RTU are not reachable from here directly - go through the HMI or
+     the engineering workstation.

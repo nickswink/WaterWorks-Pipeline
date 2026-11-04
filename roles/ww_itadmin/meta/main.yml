@@ -1,0 +1,16 @@
+---
+galaxy_info:
+  role_name: ww_itadmin
+  author: risk3sixty
+  description: WaterWorks Pipeline IT administration server (ww-it01)
+  license: Proprietary
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+  galaxy_tags:
+    - ics
+    - ctf
+
+dependencies: []

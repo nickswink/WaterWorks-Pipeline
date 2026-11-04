@@ -1,0 +1,50 @@
+---
+# ww_engws - WWP controls engineering workstation (ww-eng01)
+#
+# Shared values (ww_net, ww_flags, ww_rtu03_maint_key, ww_controlroom_password,
+# ww_org_name, ww_domain) come from the range-wide variables and are NOT
+# redefined here. ww_controlroom_password is intentionally NOT written to any
+# file on this host.
+
+# Engineering CLI toolkit location (world-readable).
+ww_eng_tools_dir: /opt/hydra-tools
+
+# PLC project / engineering files owned by the controls engineer.
+ww_eng_projects_dir: /home/m.oyelaran/projects
+
+# SUID privilege-escalation helper (PATH-hijack flaw -> eng_root flag).
+ww_eng_projbackup_src: /usr/local/src/projbackup.c
+ww_eng_projbackup_bin: /usr/local/bin/projbackup
+ww_eng_backup_dir: /var/backups
+
+# Fallback maintenance key if the range-wide var is not supplied.
+ww_rtu03_maint_key: 8042
+
+# Accounts. Passwords are long/random and not part of the attack path (access
+# to this box is via the hydra_vendor SSH key from the jump host). `salt` is
+# fixed per user so the SHA-512 hash is stable across runs (idempotency).
+ww_eng_hydra_password: "Xq7!vR3m#Kp9tBv6"
+ww_eng_oyelaran_password: "Zt4%nW8c!Lf2qHd6"
+
+ww_eng_users:
+  - name: hydra_vendor
+    comment: "Hydra Controls Integration,Vendor Remote Support"
+    password: "{{ ww_eng_hydra_password }}"
+    salt: "wweng01hydravnd1"
+  - name: m.oyelaran
+    comment: "Marcus Oyelaran,SCADA/Controls Engineer,x4203"
+    password: "{{ ww_eng_oyelaran_password }}"
+    salt: "wweng01moyelaran"
+
+# Packages. python3 for the toolkit; gcc/libc6-dev only to compile the SUID
+# projbackup helper at deploy time; git because the project tree is a repo.
+ww_eng_packages:
+  - python3
+  - openssh-server
+  - openssh-client
+  - git
+  - gcc
+  - libc6-dev
+  - cron
+  - less
+  - vim-tiny

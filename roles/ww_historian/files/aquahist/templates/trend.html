@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Trend {{ tag }}{% endblock %}
+{% block content %}
+<div class="pagehead">
+  <h1>Trend{% if tag %}: <span class="mono">{{ tag }}</span>{% endif %}</h1>
+  <form class="inline" method="get" action="{{ url_for('trend') }}">
+    <input name="tag" list="taglist" value="{{ tag }}" placeholder="SITE.TAG" size="28">
+    <datalist id="taglist">{% for t in tag_list %}<option value="{{ t }}">{% endfor %}</datalist>
+    <select name="hours">{% for h in hour_choices %}<option value="{{ h }}" {{ 'selected' if h == hours }}>{{ h }} h</option>{% endfor %}</select>
+    <button type="submit">Show</button>
+    {% if tag %}<a class="button secondary" href="{{ url_for('export_csv', tag=tag, hours=hours) }}">Export CSV</a>{% endif %}
+  </form>
+</div>
+{% if error %}
+<div class="alert bad"><strong>{{ error }}</strong>
+  <details><summary>Diagnostic detail</summary><pre>{{ sql }}</pre></details>
+</div>
+{% endif %}
+{% if not tag %}
+<div class="card"><p>Select a tag to trend. Available tags:</p>
+  <ul class="taglist">{% for t in tag_list %}<li><a href="{{ url_for('trend', tag=t, hours=hours) }}">{{ t }}</a></li>{% endfor %}</ul>
+</div>
+{% else %}
+{% if meta %}
+<p class="muted">{{ meta[5] }} &middot; {{ meta[2] }} &middot; <code>{{ meta[3] }}</code>{% if meta[4] %} &middot; units: {{ meta[4] }}{% endif %}</p>
+{% endif %}
+<div class="card chart-card">
+  <canvas id="trend" height="320"></canvas>
+  <div id="trend-tip" class="tip" hidden></div>
+  {% if not points %}<p class="muted center">No numeric samples in the selected window.</p>{% endif %}
+</div>
+{% if stats %}
+<div class="stats">
+  <div><span>Last</span>{{ stats.last|val }}</div><div><span>Min</span>{{ stats.min|val }}</div>
+  <div><span>Max</span>{{ stats.max|val }}</div><div><span>Avg</span>{{ stats.avg|val }}</div>
+  <div><span>Samples</span>{{ points|length }}</div>
+</div>
+{% endif %}
+<div class="card">
+  <h2>Samples <span class="muted small">{{ total }} row(s){% if total > max_rows %}, showing newest {{ max_rows }} &mdash; export CSV for all{% endif %}</span></h2>
+  <table class="data">
+    <thead><tr><th>Time</th><th class="num">Value</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr><td class="mono">{{ r[0]|ts }}</td><td class="num mono">{{ r[1]|val }}</td></tr>
+    {% else %}
+      <tr><td colspan="2" class="muted">No samples.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+<script type="application/json" id="trend-data">{{ {"tag": tag, "units": (meta[4] if meta else ""), "points": points}|tojson }}</script>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='trend.js') }}"></script>{% endblock %}

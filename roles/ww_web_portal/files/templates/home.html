@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ org_name }} — Water for the Cedar Ridge Region{% endblock %}
+{% block content %}
+<section class="alert-banner" role="status">
+  <div class="container">
+    <strong>Service Alert:</strong>
+    Planned water main flushing in the Summit and Hilltop service areas
+    begins the week of the 20th. Residents may notice temporary
+    discoloration; run cold water for 2&ndash;3 minutes to clear.
+    <a href="{{ url_for('notices') }}">View all notices &rarr;</a>
+  </div>
+</section>
+
+<section class="hero">
+  <div class="container hero-inner">
+    <div class="hero-copy">
+      <h1>Delivering Cedar Ridge's water since 1962</h1>
+      <p>
+        WaterWorks Pipeline Co. operates the Cedar Ridge Regional
+        Transmission System, delivering safe, reliable drinking water from
+        the Cedar River to the communities we serve.
+      </p>
+      <div class="hero-actions">
+        <a class="btn" href="{{ url_for('water_quality') }}">Water Quality Reports</a>
+        <a class="btn btn-ghost" href="{{ url_for('contact') }}">Report an Issue</a>
+      </div>
+    </div>
+    <div class="hero-stats">
+      <div class="stat"><span class="num">38</span><span class="lbl">miles of transmission main</span></div>
+      <div class="stat"><span class="num">4</span><span class="lbl">member towns served</span></div>
+      <div class="stat"><span class="num">9</span><span class="lbl">MGD treatment capacity</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="container cols-3">
+  <div class="card">
+    <h3>Water Quality</h3>
+    <p>Our water meets or exceeds all state and federal standards. Review our
+       annual Consumer Confidence Reports.</p>
+    <a href="{{ url_for('water_quality') }}">View reports &rarr;</a>
+  </div>
+  <div class="card">
+    <h3>Start or Stop Service</h3>
+    <p>Moving in or out of the service area? Customer Service can set up or
+       transfer your account.</p>
+    <a href="{{ url_for('contact') }}">Contact us &rarr;</a>
+  </div>
+  <div class="card">
+    <h3>Emergencies</h3>
+    <p>To report a water main break, low pressure, or discolored water around
+       the clock, call our 24-hour line.</p>
+    <a href="{{ url_for('contact') }}">(555) 0199 &rarr;</a>
+  </div>
+</section>
+
+{% if notices %}
+<section class="container latest-notices">
+  <h2>Latest Public Notices</h2>
+  <ul class="notice-list">
+    {% for n in notices %}
+    <li>
+      <span class="badge">{{ n.category }}</span>
+      <a href="{{ url_for('notices') }}#notice-{{ n.id }}">{{ n.title }}</a>
+      <span class="date">{{ n.published }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

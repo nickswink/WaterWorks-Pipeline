@@ -1,0 +1,31 @@
+# {{ ansible_managed }}
+[Unit]
+Description=WaterWorks Pipeline CTF scoreboard
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User={{ ww_scoreboard_user }}
+Group={{ ww_scoreboard_group }}
+EnvironmentFile={{ ww_scoreboard_conf_dir }}/scoreboard.env
+WorkingDirectory={{ ww_scoreboard_data_dir }}
+ExecStart=/usr/bin/python3 {{ ww_scoreboard_app_dir }}/app.py serve
+Restart=always
+RestartSec=3
+UMask=0027
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ReadWritePaths={{ ww_scoreboard_data_dir }}
+
+[Install]
+WantedBy=multi-user.target

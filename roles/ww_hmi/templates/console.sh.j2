@@ -1,0 +1,27 @@
+#!/bin/bash
+# Operator console shown inside the VNC session.
+export HOME=/home/{{ ww_hmi_vnc_user }}
+clear
+cat <<'BANNER'
+================================================================================
+   AquaView Operator Console — {{ inventory_hostname }}
+   {{ ww_org_name }}
+   Cedar Ridge Regional Transmission System  ·  SCADA Control Center (L2)
+================================================================================
+
+  Remote operator support session (per Hilltop SOP).
+
+   HMI web UI .......... http://127.0.0.1/      (control-room login)
+   Shift log / hand-off. ~/Desktop/Shift_Log.txt
+
+--------------------------------------------------------------------------------
+BANNER
+echo
+if [ -f "$HOME/Desktop/Shift_Log.txt" ]; then
+  cat "$HOME/Desktop/Shift_Log.txt"
+fi
+echo
+echo "--------------------------------------------------------------------------------"
+echo
+cd "$HOME" || cd /
+exec bash

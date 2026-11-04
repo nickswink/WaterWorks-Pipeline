@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% if auto_refresh %}<meta http-equiv="refresh" content="5">{% endif %}
+  <title>AquaView HMI - {{ hostname }}{% block subtitle %}{% endblock %}</title>
+  <style>
+    :root{
+      --bg:#0b1016; --panel:#121a24; --panel2:#0e151d; --line:#1f2d3a;
+      --fg:#cdd9e5; --muted:#7c8da0; --accent:#19b2c9;
+      --ok:#2fbf71; --info:#3a9ad9; --warn:#e8a33d; --alarm:#e5484d; --crit:#ff2e63;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--fg);
+      font:14px/1.45 "Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    a{color:var(--accent);text-decoration:none}
+    header.topbar{display:flex;align-items:center;gap:16px;padding:10px 18px;
+      background:linear-gradient(180deg,#132030,#0c141d);border-bottom:2px solid var(--accent)}
+    header .brand{font-weight:700;letter-spacing:.5px;color:#fff;font-size:16px}
+    header .brand small{color:var(--accent);font-weight:600}
+    header .host{color:var(--muted);font-size:12px}
+    header .spacer{flex:1}
+    header .who{color:var(--muted);font-size:12px}
+    nav.tabs{display:flex;gap:2px;background:var(--panel2);padding:0 10px;
+      border-bottom:1px solid var(--line);flex-wrap:wrap}
+    nav.tabs a{padding:10px 16px;color:var(--muted);border-bottom:3px solid transparent}
+    nav.tabs a:hover{color:var(--fg)}
+    nav.tabs a.active{color:#fff;border-bottom-color:var(--accent);background:var(--panel)}
+    main{padding:18px;max-width:1200px;margin:0 auto}
+    h1{font-size:18px;margin:0 0 14px;font-weight:600}
+    h2{font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);
+      margin:22px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px}
+    .panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px;margin-bottom:16px}
+    table{width:100%;border-collapse:collapse}
+    th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+    th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+    td.val{font-weight:700;color:#fff}
+    td.units{color:var(--muted)}
+    .q{font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px}
+    .q-GOOD{background:rgba(47,191,113,.15);color:var(--ok)}
+    .q-COMM_FAIL{background:rgba(229,72,77,.18);color:var(--alarm)}
+    .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:10px;text-transform:uppercase}
+    .s-ok{background:rgba(47,191,113,.16);color:var(--ok)}
+    .s-info{background:rgba(58,154,217,.16);color:var(--info)}
+    .s-warn{background:rgba(232,163,61,.18);color:var(--warn)}
+    .s-alarm{background:rgba(229,72,77,.2);color:var(--alarm)}
+    .s-critical{background:rgba(255,46,99,.22);color:var(--crit)}
+    .banner{padding:12px 16px;border-radius:6px;margin-bottom:14px;font-weight:600}
+    .banner.crit{background:rgba(255,46,99,.14);border:1px solid var(--crit);color:#ffd2dd}
+    .banner.code{font-family:"Cascadia Code",Consolas,monospace;word-break:break-all}
+    footer{color:var(--muted);font-size:11px;text-align:center;padding:18px}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Aqua<small>View</small> SCADA HMI</div>
+    <div class="host">{{ hostname }} &middot; {{ org_name }}</div>
+    <div class="spacer"></div>
+    {% if user %}<div class="who">{{ user }} ({{ role }}) &middot; <a href="{{ url_for('logout') }}">log out</a></div>{% endif %}
+  </header>
+  {% if user %}
+  <nav class="tabs">
+    <a href="{{ url_for('overview') }}" class="{{ 'active' if request.endpoint=='overview' }}">Overview</a>
+    <a href="{{ url_for('intake') }}" class="{{ 'active' if request.endpoint=='intake' }}">Intake</a>
+    <a href="{{ url_for('chemfeed') }}" class="{{ 'active' if request.endpoint=='chemfeed' }}">Chemical Feed</a>
+    <a href="{{ url_for('booster') }}" class="{{ 'active' if request.endpoint=='booster' }}">Booster / Tank</a>
+    <a href="{{ url_for('alarms') }}" class="{{ 'active' if request.endpoint=='alarms' }}">Alarms</a>
+    <a href="{{ url_for('shift_log') }}" class="{{ 'active' if request.endpoint=='shift_log' }}">Shift Log</a>
+  </nav>
+  {% endif %}
+  <main>
+    {% block body %}{% endblock %}
+  </main>
+  <footer>AquaView HMI v3.2 &middot; {{ org_name }} &middot; Cedar Ridge Regional Transmission System</footer>
+</body>
+</html>

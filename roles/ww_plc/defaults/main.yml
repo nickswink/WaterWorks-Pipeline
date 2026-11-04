@@ -1,0 +1,26 @@
+---
+# Which site this controller emulates: intake | chemfeed | booster
+ww_plc_site: intake
+
+# Listener configuration
+ww_plc_bind: "0.0.0.0"
+ww_plc_modbus_port: 502
+ww_plc_pcom_port: 20256          # Unitronics PCOM/TCP (chemfeed only)
+ww_plc_scan_ms: 100
+ww_plc_unit_ids: [0, 1, 255]     # accepted Modbus unit identifiers
+
+# Seconds an impact event latches before the simulated plant self-repairs.
+# Overridable from range.yaml global_role_vars (ww_plc_event_hold_s).
+ww_plc_event_hold_s: 600
+
+# Hilltop booster maintenance key (HR 20). Overridden by ww_rtu03_maint_key.
+ww_rtu03_maint_key: 8042
+
+# Service account that owns the runtime
+ww_plc_user: wwfield
+
+# Per-site human labels (used only for the device hostname / banners)
+ww_plc_site_names:
+  intake: "Cedar River Intake PS-1"
+  chemfeed: "Cedar Ridge WTP Chemical Feed"
+  booster: "Hilltop Booster PS-3 / Summit Tank"

@@ -1,0 +1,17 @@
+{# AquaView HMI runtime configuration. Rendered to /etc/aquaview/aquaview.json
+   and read by /opt/aquaview/app.py. The hmi_access flag is injected here from
+   range.yaml (global_role_vars.ww_flags) - it is NOT hardcoded in the app. #}
+{
+  "secret_key": {{ ww_hmi_flask_secret | to_json }},
+  "api_token": {{ ww_hmi_api_token | string | to_json }},
+  "org_name": {{ ww_org_name | to_json }},
+  "controlroom_password": {{ ww_controlroom_password | string | to_json }},
+  "viewer_password": {{ ww_hmi_viewer_password | string | to_json }},
+  "hmi_access_flag": {{ ww_flags.hmi_access | to_json }},
+  "poll_interval": {{ ww_hmi_poll_interval }},
+  "sites": {
+    "INTAKE":  {"host": {{ ww_hmi_poll_sites.INTAKE | to_json }},  "port": 502, "unit": 1},
+    "WTP":     {"host": {{ ww_hmi_poll_sites.WTP | to_json }},     "port": 502, "unit": 1},
+    "BOOSTER": {"host": {{ ww_hmi_poll_sites.BOOSTER | to_json }}, "port": 502, "unit": 1}
+  }
+}

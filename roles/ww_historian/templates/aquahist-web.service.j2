@@ -1,0 +1,23 @@
+[Unit]
+Description=AquaHistorian {{ ww_hist_version }} web server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ ww_hist_user }}
+Group={{ ww_hist_user }}
+Environment=AQUAHIST_CONF={{ ww_hist_conf_dir }}/aquahist.conf
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONUNBUFFERED=1
+WorkingDirectory={{ ww_hist_app_dir }}
+ExecStart=/usr/bin/python3 {{ ww_hist_app_dir }}/server.py
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths={{ ww_hist_data_dir }}
+
+[Install]
+WantedBy=multi-user.target

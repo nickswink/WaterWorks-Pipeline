@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Challenges{% endblock %}
+{% block content %}
+{% if me %}
+<section class="panel status">
+  <div><span class="dim">Team</span> <b>{{ me.name }}</b></div>
+  <div><span class="dim">Rank</span> <b class="num">{{ me.rank }}</b></div>
+  <div><span class="dim">Score</span> <b class="num cyan">{{ me.score }}</b></div>
+  <div><span class="dim">Hint penalty</span> <b class="num amber">{{ me.penalty }}</b></div>
+</section>
+{% endif %}
+{% for cat in cats %}
+<section class="cat">
+  <h2>{{ cat.name }} <span class="dim small num">{{ cat.solved }}/{{ cat.chals | length }}</span></h2>
+  <div class="grid">
+  {% for c in cat.chals %}
+    <article class="card {{ 'solved' if c.solved_at else '' }}" id="c-{{ c.key }}">
+      <div class="card-head">
+        <h3>{{ c.title }}</h3>
+        <span class="pts num">{{ c.points }}</span>
+      </div>
+      <div class="meta"><span class="tag">{{ c.host }}</span>
+        <span class="dim small">{{ c.solves }} solve{{ '' if c.solves == 1 else 's' }}</span>
+        {% if c.blood %}<span class="small"><span class="blood">&#9670;</span> {{ c.blood.team }}</span>{% endif %}
+      </div>
+      <p>{{ c.description }}</p>
+      {% for h in c.hints %}
+        {% if h.text %}
+          <div class="hint"><span class="amber">Hint {{ h.index + 1 }}:</span> {{ h.text }}</div>
+        {% else %}
+          <form method="post" action="{{ url_for('unlock_hint', key=c.key, idx=h.index) }}" class="inline"
+                onsubmit="return confirm('Unlock hint {{ h.index + 1 }} for {{ c.cost }} points?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="ghost">Unlock hint {{ h.index + 1 }} (-{{ c.cost }})</button>
+          </form>
+        {% endif %}
+      {% endfor %}
+      {% if c.solved_at %}
+        <div class="ok-badge">SOLVED · {{ c.solved_at | ts }}</div>
+      {% else %}
+        <form method="post" action="{{ url_for('submit', key=c.key) }}" class="flag">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input name="flag" placeholder="WTR{...}" autocomplete="off" spellcheck="false" maxlength="512" required>
+          <button>Submit</button>
+        </form>
+      {% endif %}
+    </article>
+  {% endfor %}
+  </div>
+</section>
+{% else %}
+<section class="panel"><p class="dim">No challenges are open yet.</p></section>
+{% endfor %}
+{% endblock %}

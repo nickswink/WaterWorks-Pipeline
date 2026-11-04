@@ -1,0 +1,6 @@
+---
+- name: Restart ww-scoreboard
+  ansible.builtin.systemd:
+    name: "{{ ww_scoreboard_service }}"
+    state: restarted
+    daemon_reload: true

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Contractor Portal — {{ org_name }}{% endblock %}
+{% block content %}
+<section class="page-head"><div class="container">
+  <h1>Contractor &amp; Staff Portal</h1>
+  <p>Authorized access for contractors and WaterWorks staff.</p>
+</div></section>
+
+<section class="container login-wrap">
+  <form class="login-card" method="post" action="{{ url_for('portal_login') }}">
+    <h2>Sign in</h2>
+    <p class="muted">Use the credentials issued by WaterWorks IT.</p>
+    <label>Username
+      <input type="text" name="username" autocomplete="username" required>
+    </label>
+    <label>Password
+      <input type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <button class="btn" type="submit">Sign in</button>
+    <p class="muted small">
+      Trouble signing in? Contact the WaterWorks IT helpdesk at (555) 0142.
+      Contractor accounts are provisioned per project.
+    </p>
+  </form>
+</section>
+{% endblock %}

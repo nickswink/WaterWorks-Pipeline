@@ -1,0 +1,94 @@
+==============================================================================
+ CEDAR RIDGE REGIONAL TRANSMISSION SYSTEM
+ SCADA / CONTROL SYSTEM DESCRIPTION
+ Doc. ENG-SCADA-001  |  Rev. 5  |  2025-10-02
+ Author: M. Oyelaran, SCADA/Controls Engineer   Reviewed: W. Pruitt, PE
+==============================================================================
+
+1. PROCESS OVERVIEW
+-------------------
+
+  Cedar River --> Intake PS-1 --24" raw main--> Cedar Ridge WTP --16" transmission main-->
+                  (PLC01)                       (PLC02 chem feed)
+      --> Hilltop Booster PS-3 --> Summit Elevated Tank --> 4 member towns
+          (RTU03)                   (1.0 MG, 40 ft)
+
+1.1 Cedar River Intake Pump Station (PS-1)
+    Location: River Rd at the Cedar River bridge
+    Three 3-MGD vertical turbine pumps (P-101, P-102, P-103) draw from a
+    screened wet well. Lead/lag control on wet-well level with a low-low
+    level trip to protect the pumps from running dry (cavitation destroys a
+    vertical turbine pump in seconds). Normally P-101 lead, P-102 lag,
+    P-103 standby. Raw water is delivered through a 24" main to the WTP.
+
+1.2 Cedar Ridge Water Treatment Plant (WTP)
+    Location: 1200 Plant Rd, Cedar Ridge.  Rated capacity 9.0 MGD.
+    Conventional treatment: coagulation (alum), flocculation, sedimentation,
+    dual-media filters (4), clearwell. Chemical feed controller PLC02 doses:
+      - Sodium hydroxide (25% NaOH) for pH / corrosion control. Normal dose
+        approx. 100 ppm, finished-water pH ~8.0. HMI operator limit 0-200 ppm.
+        A high-high pH cutout stops the caustic pump at pH 9.5.
+      - Chlorine (gas, vacuum feed) for disinfection, ~1.5 mg/L.
+    Finished water is pumped from the clearwell into the 16" transmission main.
+
+1.3 16-inch Transmission Main
+    4.0 km (13,200 ft) of 16" ductile iron, EXCEPT the Miller Creek crossing,
+    which is a 1962 cast-iron segment awaiting replacement (FY29 capital
+    plan). The main is susceptible to water hammer; see
+    Projects\Hilltop_Surge_Study_2019_SUMMARY.txt.
+
+1.4 Hilltop Booster Pump Station (PS-3) and Summit Elevated Tank
+    Location: 8042 Hilltop Rd.
+    Two booster pumps (P-301, P-302), flow control valve FCV-301 and surge
+    anticipator valve SAV-301 discharging to the 1.0 MG Summit Elevated Tank
+    (40 ft bowl, overflow at 38 ft). Pumps run lead/lag on tank level.
+    Protective functions in RTU03 logic:
+      - Pump high discharge pressure trip (140 psi)
+      - Tank high-level pump cutoff (35 ft)
+      - SAV-301 armed (opens on pressure transients)
+      - FCV-301 slew-rate limit (2 %/s)
+    Protective settings are enforced by the RTU logic and can only be changed
+    with the station maintenance mode enabled from the engineering
+    workstation (maintenance key - see ENG-SCADA-004, kept on ww-eng01).
+
+2. CONTROLLERS
+--------------
+ Tag     | Site               | Hardware                     | IP              | Protocols
+ --------+--------------------+------------------------------+-----------------+---------------------------
+ PLC01   | Intake PS-1        | Schneider Electric Modicon   | {{ '%-15s' | format(ww_net ~ '.50.10') }} | Modbus/TCP 502
+         |                    | M340, CPU BMX P34 2020       |                 |
+ PLC02   | WTP chemical feed  | Unitronics Vision V570       | {{ '%-15s' | format(ww_net ~ '.50.20') }} | Modbus/TCP 502,
+         |                    | (integrated HMI panel)       |                 | PCOM/TCP 20256
+ RTU03   | Hilltop PS-3 /     | Schneider Electric SCADAPack | {{ '%-15s' | format(ww_net ~ '.50.30') }} | Modbus/TCP 502
+         | Summit Tank        | 474                          |                 |
+
+ All controllers: Modbus unit ID 1. PLC02 also listens on the Unitronics
+ PCOM/TCP port (20256) used by VisiLogic for programming and by the vendor
+ for remote diagnostics. PCOM can read/write the full operand range,
+ including operands not mapped to Modbus.
+
+3. SUPERVISORY SYSTEMS
+----------------------
+ ww-hmi01  ({{ ww_net }}.40.10)  AquaView HMI. Polls all controllers over Modbus/TCP
+                         every 1 s. Operator screens, alarming, shift log.
+                         Exposes a read-only tag API to the historian.
+ ww-hist01 ({{ ww_net }}.30.10)  AquaHistorian. Collects tags from the HMI tag API and
+                         serves trend pages to the corporate network (:8080).
+ ww-eng01  ({{ ww_net }}.40.20)  Engineering workstation. PLC/RTU project files,
+                         programming tools, project backups.
+
+4. CONTROL PHILOSOPHY
+---------------------
+ - Pumps have three modes: OFF / HAND / AUTO. In AUTO the controller runs
+   the pump on level. HAND starts are commanded from the HMI and bypass the
+   level-based start/stop (protective trips still apply).
+ - Setpoints entered at the HMI are range-checked by the HMI only. The
+   controllers accept any value written over Modbus/PCOM.
+ - Loss of communications: controllers continue in AUTO on last setpoints.
+
+5. REFERENCES
+-------------
+ ENG-SCADA-002  Modbus register maps (ww-eng01: ~/projects)
+ ENG-SCADA-004  Hilltop RTU03 logic and maintenance procedure (ww-eng01)
+ SOP-OT-007     OT Remote Access
+ Hilltop Surge Study, Hydra Controls / Brandt & Lowe Engineers, 2019

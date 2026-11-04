@@ -1,0 +1,14 @@
+
+  {{ ww_org_name }}
+  OT Remote Access Jump Host  --  ww-jump01  ({{ ww_net }}.30.20, OT DMZ / L3.5)
+  -----------------------------------------------------------------------------
+  Authorized vendor & IT use only. This is the controlled hop between corporate
+  IT and the SCADA network. Do not pivot without a change ticket.
+
+  SCADA network reachable from here:
+    HMI    ww-hmi01  {{ ww_net }}.40.10   web :80 / VNC :5900
+    ENG WS ww-eng01  {{ ww_net }}.40.20   ssh :22  (vendor account only)
+
+  Vendor support logs: /opt/hydra/logs/   (IT review per SOP OT-RA-03)
+  All access is logged.
+

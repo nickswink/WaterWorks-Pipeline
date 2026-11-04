@@ -1,0 +1,20 @@
+galaxy_info:
+  role_name: ww_plc
+  author: risk3sixty
+  description: >-
+    Field controller runtime for the Cedar Ridge Regional Transmission System.
+    Emulates a Modicon M340 (intake), a Unitronics Vision V570 chemical-feed
+    controller (Modbus/TCP + PCOM), or a SCADAPack 474 booster/RTU, each with a
+    real process-physics model and capturable impact conditions.
+  license: MIT
+  min_ansible_version: "2.12"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+  galaxy_tags:
+    - ics
+    - ot
+    - modbus
+    - scada
+dependencies: []

@@ -1,0 +1,106 @@
+==============================================================================
+ {{ ww_org_name | upper }}
+ WWP NETWORK OVERVIEW - IT / OT ARCHITECTURE AND IP PLAN
+ Revision 4.2  |  2026-03-02  |  INTERNAL - ENGINEERING & IT USE ONLY
+ Prepared by: D. Whitfield (IT), M. Oyelaran (SCADA/Controls)
+==============================================================================
+
+1. PURPOSE
+----------
+Single reference for how the business (IT) and control (OT) networks are
+laid out, which zone each system belongs to, and which traffic is permitted
+between zones. The model follows the Purdue Enterprise Reference Architecture
+(ISA/IEC 62443 zones & conduits) as recommended in the CISA/EPA water sector
+guidance. Changes to any conduit below require an approved CHG ticket signed
+by both IT and Engineering.
+
+2. ZONES
+--------
+ Purdue | Zone                     | VLAN | Subnet              | Gateway
+ -------+--------------------------+------+---------------------+---------------
+ L5/DMZ | Internet DMZ             |  10  | {{ '%-19s' | format(ww_net ~ '.10.0/24') }} | {{ ww_net }}.10.254
+ L4     | Corporate IT             |  20  | {{ '%-19s' | format(ww_net ~ '.20.0/24') }} | {{ ww_net }}.20.254
+ L3.5   | OT DMZ                   |  30  | {{ '%-19s' | format(ww_net ~ '.30.0/24') }} | {{ ww_net }}.30.254
+ L2/L3  | SCADA Control Center     |  40  | {{ '%-19s' | format(ww_net ~ '.40.0/24') }} | {{ ww_net }}.40.254
+ L1     | Field Controllers        |  50  | {{ '%-19s' | format(ww_net ~ '.50.0/24') }} | {{ ww_net }}.50.254
+ L0     | Field I/O (hardwired 4-20 mA / discrete - no IP)
+
+All inter-zone routing is done by the core firewall. Default policy between
+zones is DENY; only the conduits listed in section 4 are permitted.
+
+3. HOSTS (servers and controllers)
+----------------------------------
+ Zone   | Hostname   | IP address          | Function
+ -------+------------+---------------------+-----------------------------------
+ DMZ    | ww-web01   | {{ '%-19s' | format(ww_net ~ '.10.10') }} | Public website www / contractor
+        |            |                     | portal (portal.{{ ww_domain }})
+ Corp   | ww-fs01    | {{ '%-19s' | format(ww_net ~ '.20.10') }} | File server (Samba): Public,
+        |            |                     | Engineering, HR, IT shares
+ Corp   | ww-it01    | {{ '%-19s' | format(ww_net ~ '.20.20') }} | IT administration server (admin
+        |            |                     | tools, scripts, config backups)
+ OT DMZ | ww-hist01  | {{ '%-19s' | format(ww_net ~ '.30.10') }} | AquaHistorian process historian
+        |            |                     | (web trend viewer :8080)
+ OT DMZ | ww-jump01  | {{ '%-19s' | format(ww_net ~ '.30.20') }} | OT remote-access jump server (SSH)
+ SCADA  | ww-hmi01   | {{ '%-19s' | format(ww_net ~ '.40.10') }} | AquaView SCADA HMI server
+        |            |                     | (web :80, VNC :5900, tag API)
+ SCADA  | ww-eng01   | {{ '%-19s' | format(ww_net ~ '.40.20') }} | Controls engineering workstation
+        |            |                     | (PLC/RTU programming software)
+ Field  | ww-plc01   | {{ '%-19s' | format(ww_net ~ '.50.10') }} | Cedar River Intake PS-1 PLC
+        |            |                     | (Schneider Modicon M340)
+ Field  | ww-plc02   | {{ '%-19s' | format(ww_net ~ '.50.20') }} | WTP chemical feed PLC
+        |            |                     | (Unitronics Vision V570)
+ Field  | ww-rtu03   | {{ '%-19s' | format(ww_net ~ '.50.30') }} | Hilltop Booster PS-3 / Summit Tank
+        |            |                     | RTU (SCADAPack 474)
+
+ Internal DNS suffix: wwp.local. Field sites connect over the licensed radio /
+ leased-line WAN, bridged into VLAN 50 at the WTP.
+
+4. CONDUITS (PERMITTED INTER-ZONE TRAFFIC)
+------------------------------------------
+ #  | Source            | Destination        | Port(s)      | Purpose / ticket
+ ---+-------------------+--------------------+--------------+-------------------------------
+ 1  | Internet          | ww-web01           | 80, 443      | Public website / portal
+ 2  | ww-web01          | ww-fs01            | tcp/445      | CCR report sync (svc acct)
+ 3  | ww-web01          | Corporate VLAN 20  | tcp/22       | TEMPORARY - CHG-2023-114 web
+    |                   |                    |              | server migration. Was due to be
+    |                   |                    |              | removed after cutover (Q4 2023).
+    |                   |                    |              | ** still open - see note A **
+ 4  | Corporate VLAN 20 | ww-web01           | tcp/22, 80   | Website content management
+ 5  | Corporate VLAN 20 | ww-hist01          | tcp/8080     | Trend viewing from the office
+ 6  | ww-it01           | ww-jump01          | tcp/22       | IT admin access to OT (key only)
+ 7  | ww-hist01         | ww-hmi01           | tcp/80       | Historian tag collection (API)
+ 8  | ww-jump01         | ww-hmi01           | tcp/80, 5900 | Remote HMI support (web + VNC)
+ 9  | ww-jump01         | ww-eng01           | tcp/22       | Remote engineering / vendor
+ 10 | ww-hmi01          | Field VLAN 50      | tcp/502      | SCADA polling (Modbus/TCP)
+ 11 | ww-eng01          | Field VLAN 50      | tcp/502,     | Programming / diagnostics
+    |                   |                    | tcp/20256    | (Modbus/TCP, Unitronics PCOM)
+
+ Note A: The CHG-2023-114 rule lets the DMZ web server open SSH sessions to
+ ANY host on the corporate VLAN "temporarily" while the old website was
+ migrated. Cutover finished Nov 2023. Removal is tracked in the FY27 firewall
+ cleanup item (see Board minutes 2026-04-16, item 4b - deferred).
+
+ Note B: Nothing in the SCADA (40) or Field (50) zones may initiate a
+ connection to Corporate or the Internet. Vendor support enters only through
+ ww-jump01 (see SCADA\OT_Remote_Access_SOP.txt).
+
+5. SERVICE ACCOUNTS CROSSING ZONES
+----------------------------------
+ svc_ccrsync   ww-web01 -> ww-fs01 (SMB, read). Mounts the Public share to
+               publish Water Quality Reports on the website. Added to eng_ro
+               for INC-2291 (2024 CCR source-water maps pulled from
+               Engineering) - temporary.
+ hydra_vendor  Hydra Controls Integration LLC support account on ww-jump01.
+
+6. OPEN ITEMS
+-------------
+ - Remove CHG-2023-114 rule (#3).                           Owner: DW
+ - Review svc_ccrsync group memberships (INC-2291 cleanup).  Owner: DW
+ - Replace shared HMI control-room login / VNC password.     Owner: MO
+ - PLC02 default password (AA23-335A) - see tracker.         Owner: MO
+
+------------------------------------------------------------------------------
+Document Control ID: {{ ww_flags.fs_engineering }}
+Classification: INTERNAL - contains security-sensitive information. Do not
+copy to the Public share or email outside WWP.
+------------------------------------------------------------------------------

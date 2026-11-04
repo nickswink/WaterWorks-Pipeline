@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block head %}<meta http-equiv="refresh" content="15">{% endblock %}
+{% block content %}
+<div class="pagehead">
+  <h1>Process Overview</h1>
+  <span class="muted small">Auto-refresh 15 s &middot; stale after {{ stale_after|int }} s</span>
+</div>
+{% if status.failures and status.failures > 0 %}
+<div class="alert bad"><strong>SCADA COLLECTOR: COMM FAIL</strong> &mdash; {{ status.failures }} consecutive failed polls of {{ api_url }}.
+  Last good poll: {{ status.last_success|ts if status.last_success else 'never' }}. Last error: <code>{{ status.last_error }}</code></div>
+{% elif not status.last_success %}
+<div class="alert warn"><strong>SCADA COLLECTOR: WAITING</strong> &mdash; no data received yet from {{ api_url }}.</div>
+{% else %}
+<div class="alert good"><strong>SCADA COLLECTOR: ONLINE</strong> &mdash; last poll {{ status.last_success|ts }} ({{ (now - status.last_success)|age }}), {{ status.tags }} tags.</div>
+{% endif %}
+<div class="grid">
+{% for site, items in groups.items() %}
+  <section class="card">
+    <h2>{{ site_names.get(site, site) }} <span class="muted small">{{ site }}</span></h2>
+    {% if items %}
+    <table class="data">
+      <thead><tr><th>Tag</th><th class="num">Value</th><th>Quality</th><th>Updated</th></tr></thead>
+      <tbody>
+      {% for t in items %}
+        <tr class="{{ t.state }}" title="{{ t.desc }}">
+          <td><a href="{{ url_for('trend', tag=t.tag, hours=1) }}">{{ t.short }}</a></td>
+          <td class="num">{{ t.value }} <span class="units">{{ t.units }}</span></td>
+          <td><span class="q q-{{ t.state }}">{{ t.quality }}</span></td>
+          <td class="muted small">{{ t.age|age }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No values historised for this site.</p>
+    {% endif %}
+  </section>
+{% endfor %}
+</div>
+<p class="muted small">{{ n_tags }} tags configured. See the <a href="{{ url_for('tags') }}">Tag Browser</a> for source addressing.</p>
+{% endblock %}

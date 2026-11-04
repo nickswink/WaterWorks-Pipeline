@@ -1,0 +1,23 @@
+---
+# AquaHistorian 4.2 process historian (ww-hist01, OT DMZ / Purdue L3.5).
+# Flags, the SCADA API token, ww_net and ww_org_name come from global_role_vars.
+
+ww_hist_user: aquahist
+ww_hist_app_dir: /opt/aquahist
+ww_hist_data_dir: /var/lib/aquahist
+ww_hist_conf_dir: /etc/aquahist
+ww_hist_db: "{{ ww_hist_data_dir }}/history.db"
+
+ww_hist_listen: 0.0.0.0
+ww_hist_port: 8080
+ww_hist_threads: 8
+
+# SCADA AquaView tag API on ww-hmi01 (VLAN 40)
+ww_hist_scada_api_url: "http://{{ ww_net }}.40.10/api/v1/tags"
+ww_hist_collector_interval: 5     # seconds between polls
+ww_hist_retention_hours: 24       # samples older than this are pruned
+ww_hist_stale_after: 20           # seconds before a tag is shown as STALE
+
+ww_hist_version: "4.2.1"
+ww_hist_build: "4.2.1.2207 (2023-03-14)"
+ww_hist_license: "AquaHistorian Site License WWP-0042 — Hydra Controls Integration LLC"

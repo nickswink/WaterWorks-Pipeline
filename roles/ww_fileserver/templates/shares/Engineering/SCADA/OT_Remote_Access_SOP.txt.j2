@@ -1,0 +1,64 @@
+==============================================================================
+ WWP STANDARD OPERATING PROCEDURE  SOP-OT-007
+ OT / SCADA REMOTE ACCESS
+ Revision 3  |  Effective 2025-01-15  |  Owner: M. Oyelaran (SCADA/Controls)
+ Approved: T. Kessler (Plant Superintendent), D. Whitfield (IT Manager)
+==============================================================================
+
+1. SCOPE
+   Applies to any WWP employee or vendor accessing systems in the OT DMZ
+   (VLAN 30), SCADA Control Center (VLAN 40) or Field (VLAN 50) zones from
+   anywhere other than the WTP control room console.
+
+2. ACCESS PATHS (the ONLY approved paths)
+
+   2.1 WWP IT administrators
+       - Log on to the IT administration server ww-it01 ({{ ww_net }}.20.20).
+       - SSH from ww-it01 to the OT jump server ww-jump01 ({{ ww_net }}.30.20)
+         using your personal SSH key. Password logins to ww-jump01 are
+         disabled. Keys live in your home directory on ww-it01 only - do NOT
+         copy them to laptops.
+       - The firewall only permits SSH to ww-jump01 FROM ww-it01.
+
+   2.2 Hydra Controls Integration LLC (system integrator)
+       - Vendor support uses the hydra_vendor account on ww-jump01.
+       - Vendor sessions are logged on ww-jump01 under /opt/hydra/logs/ and
+         reviewed by Engineering monthly.
+       - From ww-jump01 the vendor may SSH to the engineering workstation
+         ww-eng01 ({{ ww_net }}.40.20) for PLC/RTU program changes.
+       - Engineering enables the vendor session window by request (phone call
+         to x4310 or the control room x4220) and disables it afterwards.
+         (Current status: window left open between visits - see open items.)
+
+   2.3 HMI remote support (operators / vendor / on-call)
+       - HMI web interface: http://ww-hmi01 ({{ ww_net }}.40.10), port 80,
+         reachable only from ww-jump01.
+       - Full HMI desktop: VNC to ww-hmi01:5900 from ww-jump01, e.g.
+             ssh -L 5900:{{ ww_net }}.40.10:5900 ww-jump01
+         then point a VNC viewer at localhost:5900.
+       - Authentication uses the shared control-room password
+         (see binder / vendor notes). The binder is kept in the WTP
+         control room, shelf 2. Do not write the password in tickets.
+
+3. RULES
+   a. No direct connections from the corporate network or the internet to
+      VLAN 40 or VLAN 50. Ever.
+   b. No remote WRITE operations to PLCs/RTUs without a work order and a call
+      to the control room operator on duty BEFORE the change.
+   c. Protective settings at Hilltop PS-3 (HP trip, tank high-level cutoff,
+      surge valve SAV-301, FCV-301 slew limit) are not to be changed remotely.
+   d. Sessions idle > 30 minutes must be closed.
+   e. Report lost keys/credentials to IT immediately.
+
+4. OPEN ITEMS / KNOWN DEVIATIONS
+   - Shared control-room login and shared VNC password still in use
+     (AA23-335A tracker item 4). Planned: individual accounts - FY27.
+   - hydra_vendor session window is not being disabled between visits.
+   - IT admins occasionally need to read vendor session logs on ww-jump01;
+     a sudo rule for this was added by IT (DW, 2025-11). Review in Q1.
+
+5. EMERGENCY
+   If you suspect unauthorized access to any SCADA system: call the control
+   room (x4220), place affected equipment in local/HAND under operator
+   control, then call Marcus Oyelaran and Dana Whitfield. Do not power off
+   controllers.

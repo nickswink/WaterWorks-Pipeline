@@ -1,0 +1,27 @@
+site,controller,operand,proto_addr,modbus_map,fc,tag,units,default,notes
+chemfeed,V570,MI,0,HR0,03,PLANT_FLOW,MGD x100,500,
+chemfeed,V570,MI,1,HR1,03/06/16,NAOH_DOSE_SP,ppm,100,HMI faceplate limit 0-200
+chemfeed,V570,MI,2,HR2,03,NAOH_DOSE_PV,ppm,,
+chemfeed,V570,MI,3,HR3,03,FINISHED_PH,pH x100,800,
+chemfeed,V570,MI,4,HR4,03,NAOH_PUMP_SPEED,% x10,,
+chemfeed,V570,MI,5,HR5,03/06/16,CL2_DOSE_SP,mg/L x100,150,
+chemfeed,V570,MI,6,HR6,03,CL2_RESIDUAL,mg/L x100,,
+chemfeed,V570,MI,7,HR7,03,CLEARWELL_LEVEL,ft x100,,
+chemfeed,V570,MI,8,HR8,03,RAW_PH,pH x100,680,
+chemfeed,V570,MI,9,HR9,03,NAOH_TANK_LEVEL,% x10,,
+chemfeed,V570,MI,10,HR10,03/06/16,PH_HI_SP,pH x100,850,
+chemfeed,V570,MI,11,HR11,03/06/16,PH_HIHI_SP,pH x100,950,
+chemfeed,V570,MI,12,HR12,03/06/16,DOSE_MODE,enum,2,0 OFF/1 MAN/2 AUTO
+chemfeed,V570,MI,20,HR20,03,HEARTBEAT,counter,,
+chemfeed,V570,MI,900,HR900,03/16,PANEL_MSG,ascii,CEDAR RIDGE WTP - CHEMICAL FEED,24 regs
+chemfeed,V570,MI,930,HR930,03/16,EVENT_A_TEXT,ascii,,NaOH event (24 regs)
+chemfeed,V570,MI,960,HR960,03/16,EVENT_B_TEXT,ascii,,defacement event (24 regs)
+chemfeed,V570,MI,3000,NONE-PCOM,PCOM RW/SW,COMMISSIONING_NOTE,ascii,,PCOM only - above Modbus window (24 regs)
+chemfeed,V570,MB,0,COIL0,01/05/15,NAOH_PUMP_EN,bool,1,
+chemfeed,V570,MB,1,COIL1,01/05/15,CL2_FEED_EN,bool,1,
+chemfeed,V570,MB,2,COIL2,01/05/15,PH_HIHI_CUTOUT_EN,bool,1,protective cut-out
+chemfeed,V570,MB,3,COIL3,01/05/15,ALARM_RESET,bool,0,momentary
+chemfeed,V570,DI,0,DI0,02,NAOH_PUMP_RUNNING,bool,,
+chemfeed,V570,DI,1,DI1,02,PH_HI_ALARM,bool,,
+chemfeed,V570,DI,2,DI2,02,PH_HIHI_ALARM,bool,,
+chemfeed,V570,DI,3,DI3,02,PLC_RUN,bool,,1=RUN/0=STOP (toggle via PCOM CCR/CCS)

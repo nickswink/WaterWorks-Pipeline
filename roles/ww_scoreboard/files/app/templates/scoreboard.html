@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Scoreboard{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Standings <span class="dim small">auto-refresh {{ refresh }} s</span></h1>
+  {% if not rows %}<p class="dim">No teams registered yet.</p>{% else %}
+  <div class="table-wrap">
+  <table class="board">
+    <thead><tr><th>#</th><th>Team</th><th class="num">Score</th><th class="num">Solves</th><th class="num hide-sm">Hints</th><th class="hide-sm">Last solve</th><th>Progress</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr class="{{ 'mine' if team and team.id == r.id else '' }}">
+        <td class="num rank">{{ r.rank }}</td>
+        <td>{{ r.name }}{% if r.first_bloods %} <span class="blood" title="first bloods">&#9670;{{ r.first_bloods }}</span>{% endif %}</td>
+        <td class="num score">{{ r.score }}</td>
+        <td class="num">{{ r.solves }}</td>
+        <td class="num hide-sm amber">{% if r.penalty %}-{{ r.penalty }}{% else %}0{% endif %}</td>
+        <td class="num hide-sm">{{ r.last_solve | hm }}</td>
+        <td><div class="prog">
+          {% for p in r.progress %}
+            <div class="seg" title="{{ p.category }}: {{ p.solved }}/{{ p.total }}">
+              <div class="fill" style="width: {{ (100 * p.solved / p.total) | round | int if p.total else 0 }}%"></div>
+            </div>
+          {% endfor %}
+        </div></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="dim small legend">Progress segments, left to right: {{ categories | join(' · ') }}. Score = solve points minus hint penalties; ties go to the team that reached it first.</p>
+  {% endif %}
+</section>
+<section class="panel">
+  <h2>First Blood</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Challenge</th><th class="hide-sm">Category</th><th class="num">Pts</th><th>Team</th><th class="hide-sm">Time</th></tr></thead>
+    <tbody>
+    {% for f in first_bloods %}
+      <tr><td>{{ f.title }}</td><td class="hide-sm dim">{{ f.category }}</td><td class="num">{{ f.points }}</td>
+        <td>{% if f.blood %}<span class="blood">&#9670;</span> {{ f.blood.team }}{% else %}<span class="dim">unclaimed</span>{% endif %}</td>
+        <td class="num hide-sm">{{ f.blood.at | hm if f.blood else '—' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

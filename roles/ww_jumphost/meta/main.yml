@@ -1,0 +1,16 @@
+---
+galaxy_info:
+  role_name: ww_jumphost
+  author: risk3sixty
+  description: WaterWorks Pipeline OT remote-access jump host (ww-jump01)
+  license: Proprietary
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+  galaxy_tags:
+    - ics
+    - ctf
+
+dependencies: []

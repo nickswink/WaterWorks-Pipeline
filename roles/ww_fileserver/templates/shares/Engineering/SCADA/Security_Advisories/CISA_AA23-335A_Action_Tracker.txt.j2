@@ -1,0 +1,51 @@
+==============================================================================
+ ADVISORY ACTION TRACKER
+ CISA / FBI / NSA / EPA Joint Advisory AA23-335A
+ "IRGC-Affiliated Cyber Actors Exploit PLCs in Multiple Sectors, Including
+  U.S. Water and Wastewater Systems Facilities"   (published Dec. 1, 2023)
+------------------------------------------------------------------------------
+ Tracker owner: M. Oyelaran        IT liaison: D. Whitfield
+ Opened: 2023-12-04                Last review: 2026-09-29
+==============================================================================
+
+SUMMARY (for management)
+  Threat actors compromised Unitronics Vision Series PLCs at U.S. water
+  utilities (including Aliquippa, PA, Nov. 2023) by connecting to internet-
+  exposed PLCs on TCP 20256 and logging in with the DEFAULT password ("1111"),
+  then defacing the HMI screen. WWP operates ONE Unitronics Vision V570:
+  PLC02, the WTP chemical feed controller (sodium hydroxide + chlorine).
+  Related guidance also reviewed: CISA AA21-287A (ongoing threats to U.S.
+  water and wastewater systems), EPA/CISA "Top Cyber Actions for Securing
+  Water Systems", and lessons learned from the Feb. 2021 Oldsmar, FL event
+  (remote change of NaOH setpoint from ~100 ppm to 11,100 ppm via remote
+  access software).
+
+ACTIONS
+ #  | Recommended mitigation                        | Status                          | Owner | Date
+ ---+-----------------------------------------------+---------------------------------+-------+----------
+ 1  | Confirm no Unitronics PLC is reachable from    | DONE - PLC02 not internet       | DW    | 2023-12-06
+    | the internet (TCP 20256)                       | exposed; Field VLAN 50 only     |       |
+ 2  | Change PLC02 default password                  | DEFERRED - vendor visit Q1.     | MO    | --
+    |                                                | Hydra needs to update the       |       |
+    |                                                | VisiLogic project + HMI comms;  |       |
+    |                                                | risk of chem feed outage. Not   |       |
+    |                                                | done at 2026 visit (time).      |       |
+ 3  | Disable PCOM/TCP 20256 or restrict to          | OPEN - firewall limits 20256 to |  MO   | --
+    | engineering workstation                        | ww-eng01 only (partial)         |       |
+ 4  | MFA / unique accounts for remote access to     | DEFERRED - FY27 budget (Board   | DW    | --
+    | OT; remove shared logins                       | 2026-04-16 item 4b)             |       |
+ 5  | Update PLC02 firmware to latest                | DEFERRED - vendor visit Q1      | MO    | --
+ 6  | Back up PLC logic and configuration offline    | DONE - weekly project backup on | MO    | 2024-02-20
+    |                                                | ww-eng01                        |       |
+ 7  | Add HMI alarm for PLC02 panel message change   | OPEN                            | MO    | --
+ 8  | Hard limits on NaOH dose in PLC logic (not just| OPEN - HMI limits 0-200 ppm;    | MO    | --
+    | HMI)                                           | PLC accepts any value. pH HIHI  |       |
+    |                                                | cutout is the only interlock.   |       |
+
+NOTES
+ 2024-03-11  Hydra quoted $47k for firmware + password change across all
+             three controllers. Sent to budget.
+ 2025-01-09  Re-check: PLC02 still on default. Hydra scheduling Q1 visit.
+ 2025-03-20  Hydra on site - ran out of time after RTU03 work. Rescheduled.
+ 2026-04-16  Board deferred OT security package to FY27.
+ 2026-09-29  No change. Compensating control = network segmentation.

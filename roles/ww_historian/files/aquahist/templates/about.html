@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}About{% endblock %}
+{% block content %}
+<div class="pagehead"><h1>About AquaHistorian</h1></div>
+<div class="card">
+<table class="kv">
+  <tr><th>Product</th><td>AquaHistorian Process Data Historian</td></tr>
+  <tr><th>Version</th><td>{{ version }}</td></tr>
+  <tr><th>Build</th><td>{{ build }}</td></tr>
+  <tr><th>License</th><td>{{ license }}</td></tr>
+  <tr><th>Licensed to</th><td>{{ site_name }}</td></tr>
+  <tr><th>Server</th><td>{{ hostname }}</td></tr>
+  <tr><th>Storage engine</th><td>Embedded SQL (SQLite {{ sqlite_version }})</td></tr>
+  <tr><th>Collector source</th><td>SCADA AquaView API</td></tr>
+  <tr><th>Collector endpoint</th><td><code>{{ api_url }}</code></td></tr>
+  <tr><th>Poll interval</th><td>{{ interval }} s</td></tr>
+  <tr><th>Retention</th><td>{{ retention }} h</td></tr>
+  <tr><th>Configured tags</th><td>{{ info.tags }}</td></tr>
+  <tr><th>Stored samples</th><td>{{ info.samples }}</td></tr>
+  <tr><th>Last successful poll</th><td>{{ info.last_success|ts if info.last_success else 'never' }}{% if info.failures %} <span class="q q-bad">COMM FAIL x{{ info.failures }}</span>{% endif %}</td></tr>
+</table>
+</div>
+<p class="muted small">Support: Hydra Controls Integration LLC &mdash; reference site license WWP-0042 when opening a ticket.</p>
+{% endblock %}

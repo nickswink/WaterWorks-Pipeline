@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{% endblock %} | AquaHistorian {{ major_minor }} — {{ site_name }}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+{% block head %}{% endblock %}
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3c5 7 9 11.5 9 16.5A9 9 0 0 1 7 19.5C7 14.5 11 10 16 3z" fill="#4fb3e8"/><path d="M10 21h3l2-5 3 9 2-4h2" fill="none" stroke="#0b2236" stroke-width="2" stroke-linejoin="round"/></svg>
+    <div><span class="product">AquaHistorian {{ major_minor }}</span><span class="site">{{ site_name }}</span></div>
+  </div>
+  {% if user %}
+  <nav>
+    <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' }}">Dashboard</a>
+    <a href="{{ url_for('trend') }}" class="{{ 'active' if request.endpoint == 'trend' }}">Trends</a>
+    <a href="{{ url_for('tags') }}" class="{{ 'active' if request.endpoint == 'tags' }}">Tag Browser</a>
+    <a href="{{ url_for('about') }}" class="{{ 'active' if request.endpoint == 'about' }}">About</a>
+  </nav>
+  <div class="userbox">{{ user }} <span class="badge">{{ role }}</span> <a href="{{ url_for('logout') }}">Log out</a></div>
+  {% endif %}
+</header>
+<main>
+{% block content %}{% endblock %}
+</main>
+<footer>AquaHistorian {{ version }} &middot; Licensed to {{ site_name }} &middot; System integrator: Hydra Controls Integration LLC</footer>
+{% block scripts %}{% endblock %}
+</body>
+</html>

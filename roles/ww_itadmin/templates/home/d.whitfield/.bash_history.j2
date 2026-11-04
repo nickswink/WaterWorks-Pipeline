@@ -1,0 +1,30 @@
+ssh-keygen -t ed25519 -C "d.whitfield@ww-it01" -f ~/.ssh/id_ed25519 -N ""
+cat ~/.ssh/id_ed25519.pub
+vi ~/.ssh/config
+chmod 600 ~/.ssh/config
+ssh ww-jump01
+ssh ww-jump01 'sudo -l'
+ssh ww-jump01
+smbclient -L //ww-fs01 -U d.whitfield
+smbclient '//ww-fs01/IT$' -U d.whitfield -c 'cd Runbooks; ls'
+smbclient //ww-fs01/Engineering -U d.whitfield
+smbclient //ww-fs01/Public -U d.whitfield -c 'cd IT_Helpdesk; put New_Hire_IT_Checklist.txt'
+curl -s http://{{ ww_net }}.30.10:8080/ | head -40
+curl -sI http://{{ ww_net }}.30.10:8080/
+ssh -L 5900:{{ ww_net }}.40.10:5900 ww-jump01
+ssh -L 8080:{{ ww_net }}.40.10:80 ww-jump01
+ssh ww-jump01
+cat /etc/cron.d/it-config-backup
+ls -l /opt/it-scripts/
+vi /opt/it-scripts/nightly_config_backup.sh
+bash -n /opt/it-scripts/nightly_config_backup.sh
+tail -n 20 /var/log/it-config-backup.log
+ls -l /var/backups/it/
+getent group helpdesk itstaff
+rsync -av Documents/ ~/Documents.bak/
+jq . /tmp/vendor_visit.json
+rm /tmp/vendor_visit.json
+sqlite3 --version
+ssh ww-jump01
+less Documents/OT_Access_Notes.txt
+history | tail

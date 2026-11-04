@@ -1,0 +1,19 @@
+---
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart aquaview-hmi
+  ansible.builtin.systemd:
+    name: aquaview-hmi.service
+    state: restarted
+
+- name: Restart aquaview-xvfb
+  ansible.builtin.systemd:
+    name: aquaview-xvfb.service
+    state: restarted
+
+- name: Restart aquaview-vnc
+  ansible.builtin.systemd:
+    name: aquaview-vnc.service
+    state: restarted

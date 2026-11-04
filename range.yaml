@@ -1,0 +1,493 @@
+# yaml-language-server: $schema=https://docs.ludus.cloud/schemas/range-config.json
+#
+# ============================================================================
+#  WaterWorks Pipeline Co. — Cedar Ridge Regional Transmission System
+#  Red team ICS/OT range  (range ID: waterworks)
+# ============================================================================
+#  Purdue-aligned segments (10.<range>.<vlan>.<octet>):
+#    VLAN 10  Internet DMZ        ww-web01   public website + contractor portal
+#    VLAN 20  Corporate IT (L4)   ww-fs01    Samba file server
+#                                 ww-it01    IT admin server
+#    VLAN 30  OT DMZ (L3.5)       ww-hist01  AquaHistorian process historian
+#                                 ww-jump01  OT remote-access jump host
+#    VLAN 40  SCADA (L2/L3)       ww-hmi01   AquaView HMI (web + VNC)
+#                                 ww-eng01   Engineering workstation
+#    VLAN 50  Field (L1)          ww-plc01   Intake PS-1        (Modbus/TCP)
+#                                 ww-plc02   WTP chemical feed  (Modbus/TCP + PCOM)
+#                                 ww-rtu03   Hilltop booster PS (Modbus/TCP)
+#    VLAN 60  Range services      ww-score   CTF scoreboard (out of scope)
+#
+#  Players connect over WireGuard and can reach ONLY VLAN 10 and VLAN 60.
+#  Everything else is reached by pivoting. See README.md / docs/DESIGN.md.
+# ============================================================================
+
+defaults:
+  snapshot_with_RAM: true
+  stale_hours: 0
+  ad_domain_functional_level: WinThreshold
+  ad_forest_functional_level: WinThreshold
+  # No Windows domain in this range; these are set only because the
+  # `defaults` block must be complete. They are not the Ludus defaults.
+  ad_domain_admin: wwp_da
+  ad_domain_admin_password: "Unused#Domain-Admin-7731"
+  ad_domain_user: wwp_user
+  ad_domain_user_password: "Unused#Domain-User-7731"
+  ad_domain_safe_mode_password: "Unused#SafeMode-7731"
+  timezone: America/Chicago
+  enable_dynamic_wallpaper: false
+
+# ----------------------------------------------------------------------------
+#  Variables shared by every WaterWorks role. Change flags/passwords here only.
+# ----------------------------------------------------------------------------
+global_role_vars:
+  ww_net: "10.{{ range_second_octet }}"
+  ww_org_name: "WaterWorks Pipeline Co."
+  ww_domain: "waterworkspipeline.com"
+
+  # --- scenario secrets (see docs/DESIGN.md §3) ---
+  ww_portal_secret_key: "wwp-portal-7f3c91d2e8a44b06b1c2"
+  ww_ccrsync_password: "CCRsync#Feb2019"
+  ww_newhire_password: "WaterWorks2026!"
+  ww_controlroom_password: "Cedar2019!"
+  ww_vnc_password: "Cedar201"          # VNC auth truncates to 8 chars
+  ww_hmi_api_token: "aqv-hist-5d2b8e917c4f4a0e"
+  ww_rtu03_maint_key: 8042
+  ww_scoreboard_admin_password: "Sc0reb0ard#Admin-WWP"
+  ww_plc_event_hold_s: 600              # seconds an impact event latches before the plant "repairs"
+
+  # --- CTF flags (the scoreboard hashes these at deploy time) ---
+  ww_flags:
+    web_recon: "WTR{r0b0ts_l34k_th3_st4g1ng_p0rt4l}"
+    web_lfi: "WTR{ccr_r3p0rt_p4th_tr4v3rs4l}"
+    web_rce: "WTR{b01l_w4t3r_n0t1c3_sst1}"
+    web_root: "WTR{rsync_t0_r00t_1n_th3_dmz}"
+    fs_engineering: "WTR{0v3rpr1v1l3g3d_sync_4cc0unt}"
+    it_spray: "WTR{n3w_h1r3_d3f4ult_p4ssw0rd}"
+    it_root: "WTR{cr0n_j0b_gr0up_wr1t4bl3}"
+    hist_sqli: "WTR{h1st0r14n_t4g_1nj3ct10n}"
+    jump_vendor: "WTR{v3nd0r_4cc3ss_v14_l3ss}"
+    hmi_access: "WTR{sh4r3d_c0ntr0l_r00m_l0g1n}"
+    eng_root: "WTR{p4th_h1j4ck_th3_3ng1n33r1ng_ws}"
+    plc01_devid: "WTR{m0dbus_d3v1c3_1d3nt1ty}"
+    plc02_pcom: "WTR{pc0m_m3m0ry_1nt3g3rs}"
+    impact_drypump: "WTR{1nt4k3_pump_dry_run_c4v1t4t10n}"
+    impact_naoh: "WTR{c4ust1c_s0d4_11100_ppm}"
+    impact_deface: "WTR{y0u_h4v3_b33n_h4ck3d_p4n3l}"
+    impact_overflow: "WTR{summ1t_t4nk_0v3rfl0w}"
+    impact_mainbreak: "WTR{w4t3r_h4mm3r_m41n_br34k}"
+    intel_oldsmar: "WTR{11100}"
+    intel_pcom: "WTR{20256}"
+    intel_attack: "WTR{T0836}"
+
+  # --- Ludus IoC sanitizer (roles/ww_sanitize) ---
+  ww_sanitize_ludus_source_ip: "192.0.2.254"   # Ludus host; only place localuser may SSH from
+
+ludus:
+  # ==========================================================================
+  #  VLAN 10 — Internet DMZ (reachable by players over WireGuard)
+  # ==========================================================================
+  - vm_name: "{{ range_id }}-ww-web01"
+    hostname: "ww-web01"
+    template: debian-12-x64-server-template
+    vlan: 10
+    ip_last_octet: 10
+    ram_gb: 2
+    cpus: 2
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+    dns_rewrites:
+      - waterworkspipeline.com
+      - www.waterworkspipeline.com
+      - portal.waterworkspipeline.com
+    roles:
+      - ww_web_portal
+      - name: ww_sanitize
+        depends_on:
+          - vm_name: "{{ range_id }}-ww-web01"
+            role: ww_web_portal
+    role_vars:
+      ww_motd_role: "Public website / contractor portal"
+
+  # ==========================================================================
+  #  VLAN 20 — Corporate IT (Purdue L4)
+  # ==========================================================================
+  - vm_name: "{{ range_id }}-ww-fs01"
+    hostname: "ww-fs01"
+    template: debian-12-x64-server-template
+    vlan: 20
+    ip_last_octet: 10
+    ram_gb: 2
+    cpus: 2
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+    roles:
+      - ww_fileserver
+      - name: ww_sanitize
+        depends_on:
+          - vm_name: "{{ range_id }}-ww-fs01"
+            role: ww_fileserver
+    role_vars:
+      ww_motd_role: "Corporate file server"
+
+  - vm_name: "{{ range_id }}-ww-it01"
+    hostname: "ww-it01"
+    template: debian-12-x64-server-template
+    vlan: 20
+    ip_last_octet: 20
+    ram_gb: 2
+    cpus: 2
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+    roles:
+      - ww_itadmin
+      - name: ww_sanitize
+        depends_on:
+          - vm_name: "{{ range_id }}-ww-it01"
+            role: ww_itadmin
+    role_vars:
+      ww_motd_role: "IT administration server"
+
+  # ==========================================================================
+  #  VLAN 30 — OT DMZ (Purdue L3.5)
+  # ==========================================================================
+  - vm_name: "{{ range_id }}-ww-hist01"
+    hostname: "ww-hist01"
+    template: debian-12-x64-server-template
+    vlan: 30
+    ip_last_octet: 10
+    ram_gb: 2
+    cpus: 2
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+    roles:
+      - ww_historian
+      - name: ww_sanitize
+        depends_on:
+          - vm_name: "{{ range_id }}-ww-hist01"
+            role: ww_historian
+    role_vars:
+      ww_motd_role: "AquaHistorian process historian"
+
+  - vm_name: "{{ range_id }}-ww-jump01"
+    hostname: "ww-jump01"
+    template: debian-12-x64-server-template
+    vlan: 30
+    ip_last_octet: 20
+    ram_gb: 2
+    cpus: 2
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+    roles:
+      - ww_jumphost
+      - name: ww_sanitize
+        depends_on:
+          - vm_name: "{{ range_id }}-ww-jump01"
+            role: ww_jumphost
+    role_vars:
+      ww_motd_role: "OT remote access jump server"
+
+  # ==========================================================================
+  #  VLAN 40 — SCADA control center (Purdue L2/L3)
+  # ==========================================================================
+  - vm_name: "{{ range_id }}-ww-hmi01"
+    hostname: "ww-hmi01"
+    template: debian-12-x64-server-template
+    vlan: 40
+    ip_last_octet: 10
+    ram_gb: 4
+    cpus: 2
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+    roles:
+      - ww_hmi
+      - name: ww_sanitize
+        depends_on:
+          - vm_name: "{{ range_id }}-ww-hmi01"
+            role: ww_hmi
+    role_vars:
+      ww_motd_role: "AquaView SCADA HMI server"
+
+  - vm_name: "{{ range_id }}-ww-eng01"
+    hostname: "ww-eng01"
+    template: debian-12-x64-server-template
+    vlan: 40
+    ip_last_octet: 20
+    ram_gb: 2
+    cpus: 2
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+    roles:
+      - ww_engws
+      - name: ww_sanitize
+        depends_on:
+          - vm_name: "{{ range_id }}-ww-eng01"
+            role: ww_engws
+    role_vars:
+      ww_motd_role: "Controls engineering workstation"
+
+  # ==========================================================================
+  #  VLAN 50 — Field controllers (Purdue L1). Emulated PLC/RTU runtimes.
+  # ==========================================================================
+  - vm_name: "{{ range_id }}-ww-plc01"
+    hostname: "ww-plc01"
+    template: debian-12-x64-server-template
+    vlan: 50
+    ip_last_octet: 10
+    ram_gb: 1
+    cpus: 1
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+    roles:
+      - ww_plc
+      - name: ww_sanitize
+        depends_on:
+          - vm_name: "{{ range_id }}-ww-plc01"
+            role: ww_plc
+    role_vars:
+      ww_plc_site: intake
+      ww_motd_role: "Intake PS-1 controller"
+
+  - vm_name: "{{ range_id }}-ww-plc02"
+    hostname: "ww-plc02"
+    template: debian-12-x64-server-template
+    vlan: 50
+    ip_last_octet: 20
+    ram_gb: 1
+    cpus: 1
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+    roles:
+      - ww_plc
+      - name: ww_sanitize
+        depends_on:
+          - vm_name: "{{ range_id }}-ww-plc02"
+            role: ww_plc
+    role_vars:
+      ww_plc_site: chemfeed
+      ww_motd_role: "WTP chemical feed controller"
+
+  - vm_name: "{{ range_id }}-ww-rtu03"
+    hostname: "ww-rtu03"
+    template: debian-12-x64-server-template
+    vlan: 50
+    ip_last_octet: 30
+    ram_gb: 1
+    cpus: 1
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+    roles:
+      - ww_plc
+      - name: ww_sanitize
+        depends_on:
+          - vm_name: "{{ range_id }}-ww-rtu03"
+            role: ww_plc
+    role_vars:
+      ww_plc_site: booster
+      ww_motd_role: "Hilltop booster PS-3 RTU"
+
+  # ==========================================================================
+  #  VLAN 60 — Range services (OUT OF SCOPE for attack)
+  # ==========================================================================
+  - vm_name: "{{ range_id }}-ww-score"
+    hostname: "ww-score"
+    template: debian-12-x64-server-template
+    vlan: 60
+    ip_last_octet: 10
+    ram_gb: 2
+    cpus: 2
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+    dns_rewrites:
+      - scoreboard.range
+    roles:
+      - ww_scoreboard
+      - name: ww_sanitize
+        depends_on:
+          - vm_name: "{{ range_id }}-ww-score"
+            role: ww_scoreboard
+    role_vars:
+      ww_motd_role: "CTF scoreboard (out of scope)"
+
+router:
+  vm_name: "{{ range_id }}-router-debian12-x64"
+  hostname: "{{ range_id }}-router"
+  template: debian-12-x64-server-template
+  ram_gb: 2
+  ram_min_gb: 1
+  cpus: 2
+
+# ============================================================================
+#  Networking — Purdue-style segmentation enforced on the Ludus router.
+#
+#  How Ludus applies these (verified against ludus-server firewall tasks):
+#   * Every rule is INSERTED at the top of its chain, so the LAST rule listed
+#     is evaluated FIRST. Broad rules go first, narrow exceptions after.
+#   * Rules whose vlan_src/vlan_dst is `wireguard` go to LUDUS_DEFAULTS, which
+#     is evaluated before LUDUS_USER_RULES (all other rules).
+#   * RELATED/ESTABLISHED return traffic is always allowed (stateful).
+#   * WireGuard clients granted range access are ACCEPTed to every VLAN by
+#     default; the REJECTs below take that away for VLANs 20-50.
+# ============================================================================
+network:
+  inter_vlan_default: REJECT        # zero-trust between zones; only flows below are allowed
+  external_default: ACCEPT          # VMs need apt during deploy (see SETUP.md §6 to lock OT egress)
+  wireguard_vlan_default: REJECT    # range hosts cannot open connections to players by default
+  always_blocked_networks:
+    - 10.0.0.0/24                   # EDIT: the LAN your Ludus host lives on
+
+  rules:
+    # ------------------------------------------------------------------------
+    #  Players (WireGuard = "the internet"): DMZ + scoreboard only
+    # ------------------------------------------------------------------------
+    - name: "WG: block Corporate IT (VLAN 20)"
+      vlan_src: wireguard
+      vlan_dst: 20
+      protocol: all
+      ports: all
+      action: REJECT
+    - name: "WG: block OT DMZ (VLAN 30)"
+      vlan_src: wireguard
+      vlan_dst: 30
+      protocol: all
+      ports: all
+      action: REJECT
+    - name: "WG: block SCADA (VLAN 40)"
+      vlan_src: wireguard
+      vlan_dst: 40
+      protocol: all
+      ports: all
+      action: REJECT
+    - name: "WG: block Field controllers (VLAN 50)"
+      vlan_src: wireguard
+      vlan_dst: 50
+      protocol: all
+      ports: all
+      action: REJECT
+    # (WireGuard -> VLAN 10 and VLAN 60 stay allowed by the Ludus access grant.)
+    - name: "DMZ web server egress to players (callbacks / C2)"
+      vlan_src: 10
+      ip_last_octet_src: 10
+      vlan_dst: wireguard
+      protocol: all
+      ports: all
+      action: ACCEPT
+
+    # ------------------------------------------------------------------------
+    #  Internet DMZ <-> Corporate IT
+    # ------------------------------------------------------------------------
+    - name: "DMZ: ww-web01 -> ww-fs01 SMB (CCR report sync)"
+      vlan_src: 10
+      ip_last_octet_src: 10
+      vlan_dst: 20
+      ip_last_octet_dst: 10
+      protocol: tcp
+      ports: "445"
+      action: ACCEPT
+    - name: "DMZ: ww-web01 -> Corp SSH (CHG-2023-114 temp migration rule - REMOVE AFTER CUTOVER)"
+      vlan_src: 10
+      ip_last_octet_src: 10
+      vlan_dst: 20
+      protocol: tcp
+      ports: "22"
+      action: ACCEPT
+    - name: "Corp -> ww-web01 SSH/HTTP (web content management)"
+      vlan_src: 20
+      vlan_dst: 10
+      ip_last_octet_dst: 10
+      protocol: tcp
+      ports: "22,80"
+      action: ACCEPT
+
+    # ------------------------------------------------------------------------
+    #  Corporate IT -> OT DMZ (L4 -> L3.5)
+    # ------------------------------------------------------------------------
+    - name: "Corp -> ww-hist01 AquaHistorian web (trend viewing)"
+      vlan_src: 20
+      vlan_dst: 30
+      ip_last_octet_dst: 10
+      protocol: tcp
+      ports: "8080"
+      action: ACCEPT
+    - name: "ww-it01 -> ww-jump01 SSH (IT admin remote access to OT)"
+      vlan_src: 20
+      ip_last_octet_src: 20
+      vlan_dst: 30
+      ip_last_octet_dst: 20
+      protocol: tcp
+      ports: "22"
+      action: ACCEPT
+
+    # ------------------------------------------------------------------------
+    #  OT DMZ -> SCADA (L3.5 -> L2)
+    # ------------------------------------------------------------------------
+    - name: "ww-hist01 -> ww-hmi01 SCADA tag API (historian collection)"
+      vlan_src: 30
+      ip_last_octet_src: 10
+      vlan_dst: 40
+      ip_last_octet_dst: 10
+      protocol: tcp
+      ports: "80"
+      action: ACCEPT
+    - name: "ww-jump01 -> ww-hmi01 HMI web + VNC (remote operator support)"
+      vlan_src: 30
+      ip_last_octet_src: 20
+      vlan_dst: 40
+      ip_last_octet_dst: 10
+      protocol: tcp
+      ports: "80,5900"
+      action: ACCEPT
+    - name: "ww-jump01 -> ww-eng01 SSH (remote engineering)"
+      vlan_src: 30
+      ip_last_octet_src: 20
+      vlan_dst: 40
+      ip_last_octet_dst: 20
+      protocol: tcp
+      ports: "22"
+      action: ACCEPT
+
+    # ------------------------------------------------------------------------
+    #  SCADA -> Field controllers (L2 -> L1)
+    # ------------------------------------------------------------------------
+    - name: "ww-hmi01 -> Field Modbus/TCP (SCADA polling)"
+      vlan_src: 40
+      ip_last_octet_src: 10
+      vlan_dst: 50
+      protocol: tcp
+      ports: "502"
+      action: ACCEPT
+    - name: "ww-eng01 -> Field Modbus/TCP (engineering)"
+      vlan_src: 40
+      ip_last_octet_src: 20
+      vlan_dst: 50
+      protocol: tcp
+      ports: "502"
+      action: ACCEPT
+    - name: "ww-eng01 -> Field PCOM/TCP 20256 (Unitronics engineering)"
+      vlan_src: 40
+      ip_last_octet_src: 20
+      vlan_dst: 50
+      protocol: tcp
+      ports: "20256"
+      action: ACCEPT

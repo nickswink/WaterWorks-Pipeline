@@ -1,0 +1,14 @@
+cd ~/projects
+ls -l
+git log --oneline -5
+vi CEDAR_WTP_CHEMFEED_PLC02_V570.md
+/opt/hydra-tools/mbtool.py {{ ww_net }}.50.20 rh 0 13
+/opt/hydra-tools/pcom_client.py {{ ww_net }}.50.20 id
+less Hilltop_Surge_Analysis_2019.md
+vi HILLTOP_RTU03_main.st
+projbackup
+git commit -am "docs: refresh RTU03 surge protection narrative"
+/opt/hydra-tools/mbtool.py {{ ww_net }}.50.30 ri 0 8
+/opt/hydra-tools/tagmon.py {{ ww_net }}.50.30 booster -n 3
+cat addressing/HILLTOP_RTU03_addressing.csv
+clear

@@ -1,0 +1,22 @@
+---
+galaxy_info:
+  role_name: ww_engws
+  author: risk3sixty
+  description: >-
+    WaterWorks Pipeline controls engineering workstation (ww-eng01). Holds the
+    PLC project files, the Hydra Controls engineering CLI toolkit (Modbus/TCP +
+    Unitronics PCOM/TCP), the RTU03 maintenance key, and a SUID PATH-hijack
+    privilege escalation to root.
+  license: Proprietary
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+  galaxy_tags:
+    - ics
+    - ot
+    - scada
+    - ctf
+
+dependencies: []

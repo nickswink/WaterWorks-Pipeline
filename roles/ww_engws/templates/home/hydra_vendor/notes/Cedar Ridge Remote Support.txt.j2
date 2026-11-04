@@ -1,0 +1,58 @@
+===============================================================================
+ HYDRA CONTROLS INTEGRATION LLC — Remote Support Runbook
+ Client : {{ ww_org_name }}  (Cedar Ridge Regional Transmission System)
+ Scope  : SCADA / PLC engineering support, Cedar Ridge
+ Account: hydra_vendor
+ Rev    : 2026-02
+===============================================================================
+
+PURPOSE
+  How Hydra engineers connect in to do remote PLC/SCADA work for WWP without
+  being on site. Keep this current; WWP IT audits vendor access quarterly.
+
+ACCESS PATH (how we get to the engineering workstation)
+  1. Open a ticket with WWP IT (Dana Whitfield). IT enables our access to the
+     OT jump host for the maintenance window. Players, note: there is no direct
+     route from the corporate/IT network to the SCADA VLAN -- everything hops
+     the jump host.
+  2. Hop from the jump host to the engineering workstation over SSH:
+         jump:  ssh eng
+     (the ~/.ssh/config on the jump host has an "eng" alias; we authenticate
+      with the hydra_vendor engineering key, not a password.)
+  3. The engineering workstation (ww-eng01, {{ ww_net }}.40.20) is the only
+     box permitted to reach the field controllers on tcp/502 and tcp/20256.
+
+WHAT WE RUN ON THE ENGINEERING WORKSTATION
+  - Toolkit lives in /opt/hydra-tools (world readable):
+        pcom_client.py   Unitronics PCOM/TCP (V570 chem-feed, tcp/20256)
+        mbtool.py        Modbus/TCP for all three controllers (tcp/502)
+        tagmon.py        live tag monitor
+    See /opt/hydra-tools/README.md for usage. The V570 commissioning note and
+    its RUN/STOP control are PCOM-only -- Modbus won't reach them.
+  - PLC project files are under ~m.oyelaran/projects (M340 intake, V570 chem
+    feed, SCADAPack RTU03). Always snapshot before editing a live program.
+  - Controllers by address:
+        {{ ww_net }}.50.10   ww-plc01  Cedar River Intake PS-1 (M340)
+        {{ ww_net }}.50.20   ww-plc02  WTP Chemical Feed (V570, Modbus + PCOM)
+        {{ ww_net }}.50.30   ww-rtu03  Hilltop Booster PS-3 (SCADAPack 474)
+
+OPERATOR / HMI SUPPORT
+  For operator-facing issues we support the AquaView HMI at {{ ww_net }}.40.10:
+    - web console over the jump host, and
+    - VNC (:5900) via the jump host for screen-share with the control room.
+  The control-room operators use the shared "controlroom" login on the HMI;
+  get the current password from Priya Raman (control room lead) during the
+  window -- do NOT store operator credentials in this runbook.
+
+HOUSEKEEPING
+  - Log every change in the project git repo with a clear message.
+  - Return all protective settings to engineered values before leaving
+    (especially RTU03 FCV-301 slew / SAV-301 after any surge test).
+  - Close the ticket so IT can disable the jump-host access again.
+
+CONTACTS
+  WWP IT (access)        : Dana Whitfield
+  WWP Controls Engineer  : Marcus Oyelaran (m.oyelaran)
+  Control Room (lead)    : Priya Raman
+  Hydra on-call          : support@hydra-controls.example
+===============================================================================

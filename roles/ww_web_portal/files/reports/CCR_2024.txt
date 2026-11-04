@@ -1,0 +1,37 @@
+===============================================================================
+ WATERWORKS PIPELINE CO. - CEDAR RIDGE REGIONAL TRANSMISSION SYSTEM
+ 2024 CONSUMER CONFIDENCE REPORT (ANNUAL WATER QUALITY REPORT)
+ Covering monitoring results for calendar year 2024
+===============================================================================
+
+Is my water safe?
+  Yes. Your tap water met all state and federal drinking water standards during
+  2024. This report summarizes the monitoring results for that year.
+
+Where does my water come from?
+  Source water is drawn from the Cedar River at Intake Pumping Station PS-1,
+  treated at the Cedar Ridge Water Treatment Plant, and delivered through our
+  regional transmission system to member communities.
+
+Detected contaminants (2024 monitoring)
+  Contaminant          Unit     MCL     MCLG    Result   Range         Status
+  -----------------------------------------------------------------------------
+  Total Coliform        %pos     5.0     0       0.0      0-0           PASS
+  Turbidity             NTU      TT      n/a     0.10     0.04-0.25     PASS
+  Chlorine (residual)   mg/L     MRDL 4  4       0.95     0.65-1.35     PASS
+  Lead (90th pct)       ppb      AL 15   0       2.3      ND-5.1        PASS
+  Copper (90th pct)     ppm      AL 1.3  1.3     0.14     ND-0.31       PASS
+  Nitrate (as N)        ppm      10      10      0.80     0.5-1.2       PASS
+  Total Trihalomethanes ppb      80      n/a     41       24-52         PASS
+  Haloacetic Acids      ppb      60      n/a     25       14-34         PASS
+  Fluoride              ppm      4.0     4.0     0.70     0.5-0.9       PASS
+
+Definitions
+  MCL   Maximum Contaminant Level      MCLG  Maximum Contaminant Level Goal
+  MRDL  Maximum Residual Disinfectant  AL    Action Level
+  TT    Treatment Technique            ND    Not Detected
+
+Questions?
+  Water Quality Manager, WaterWorks Pipeline Co.
+  410 Riverside Dr, Cedar Ridge  -  Customer Service (555) 0142
+===============================================================================

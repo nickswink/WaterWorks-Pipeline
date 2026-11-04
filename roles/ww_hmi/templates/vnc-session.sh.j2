@@ -1,0 +1,37 @@
+#!/bin/bash
+# AquaView remote operator support session.
+# Starts a lightweight WM, an operator console terminal and x11vnc on the
+# virtual framebuffer. Headless / no GPU required.
+set -u
+export DISPLAY={{ ww_hmi_vnc_display }}
+export HOME=/home/{{ ww_hmi_vnc_user }}
+
+# wait (up to ~120s) for the X server to accept connections. The aquaview-xvfb
+# unit should already be up, but on a cold first boot Xvfb can lag behind this
+# service, so we never exec x11vnc against a display that is not ready yet.
+ready=0
+for _ in $(seq 1 240); do
+  if xdpyinfo -display "$DISPLAY" >/dev/null 2>&1; then ready=1; break; fi
+  sleep 0.5
+done
+if [ "$ready" -ne 1 ]; then
+  echo "AquaView: X display $DISPLAY never became ready" >&2
+  exit 1   # let systemd Restart=always try again rather than bind to nothing
+fi
+
+# lightweight window manager
+fluxbox >/tmp/aquaview-fluxbox.log 2>&1 &
+
+# operator console terminal (visibly an operator console)
+xterm -title "AquaView Operator Console — {{ inventory_hostname }}" \
+      -geometry 110x32+40+40 -fa Monospace -fs 11 \
+      -e "{{ ww_hmi_app_dir }}/console.sh" &
+
+# Serve the framebuffer over VNC with the classic DES password file.
+# -listen 0.0.0.0 + -rfbportv6 -1 force an IPv4 bind on {{ ww_hmi_vnc_port }};
+# without this x11vnc can bind IPv6 only, which makes an IPv4 health check (and
+# some viewers) fail even though VNC is "up".
+exec x11vnc -display "$DISPLAY" -rfbport {{ ww_hmi_vnc_port }} \
+     -listen 0.0.0.0 -rfbportv6 -1 \
+     -rfbauth "$HOME/.vnc/passwd" -forever -shared -noxdamage \
+     -bg no -o /tmp/aquaview-x11vnc.log

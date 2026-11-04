@@ -1,0 +1,281 @@
+---
+- name: Assert required range-wide variables are defined
+  ansible.builtin.assert:
+    that:
+      - ww_flags is defined
+      - ww_flags.eng_root is defined
+      - ww_flags.plc01_devid is defined
+      - ww_flags.plc02_pcom is defined
+      - ww_net is defined
+      - ww_rtu03_maint_key is defined
+      - ww_org_name is defined
+    fail_msg: "ww_engws requires the WaterWorks global_role_vars (ww_flags, ww_net, ww_rtu03_maint_key, ww_org_name)."
+    quiet: true
+
+- name: Install engineering workstation packages
+  ansible.builtin.apt:
+    name: "{{ ww_eng_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# ---------------------------------------------------------------------------
+#  Accounts
+# ---------------------------------------------------------------------------
+- name: Create engineering user accounts
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    comment: "{{ item.comment }}"
+    shell: /bin/bash
+    home: "/home/{{ item.name }}"
+    create_home: true
+    password: "{{ item.password | password_hash('sha512', item.salt) }}"
+    update_password: always
+    state: present
+  loop: "{{ ww_eng_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+
+- name: Set home directory ownership and permissions
+  ansible.builtin.file:
+    path: "/home/{{ item.name }}"
+    state: directory
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: "0750"
+  loop: "{{ ww_eng_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+# ---------------------------------------------------------------------------
+#  SSH: hydra_vendor logs in with the engineering key from the jump host.
+#  Password auth is also left on (so the whole scenario stays reachable).
+# ---------------------------------------------------------------------------
+- name: Create hydra_vendor .ssh directory
+  ansible.builtin.file:
+    path: /home/hydra_vendor/.ssh
+    state: directory
+    owner: hydra_vendor
+    group: hydra_vendor
+    mode: "0700"
+
+- name: Install hydra_vendor authorized_keys (engineering key)
+  ansible.builtin.copy:
+    src: hydra_vendor_eng.pub
+    dest: /home/hydra_vendor/.ssh/authorized_keys
+    owner: hydra_vendor
+    group: hydra_vendor
+    mode: "0600"
+
+- name: Allow SSH password + pubkey authentication (drop-in, sorted first)
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/00-wwp-auth.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # WWP engineering workstation. Vendor connects from the OT jump host with
+      # the hydra_vendor engineering key; password auth kept on for local staff.
+      PasswordAuthentication yes
+      PubkeyAuthentication yes
+  notify: Restart ssh
+
+- name: Validate sshd configuration
+  ansible.builtin.command: sshd -t
+  changed_when: false
+
+- name: Ensure SSH and cron are enabled and running
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop:
+    - ssh
+    - cron
+
+- name: Add internal host names
+  ansible.builtin.blockinfile:
+    path: /etc/hosts
+    marker: "# {mark} WWP internal hosts"
+    block: |
+      {{ ww_net }}.40.10   ww-hmi01.wwp.local   ww-hmi01
+      {{ ww_net }}.40.20   ww-eng01.wwp.local   ww-eng01
+      {{ ww_net }}.50.10   ww-plc01.wwp.local   ww-plc01
+      {{ ww_net }}.50.20   ww-plc02.wwp.local   ww-plc02
+      {{ ww_net }}.50.30   ww-rtu03.wwp.local   ww-rtu03
+
+# ---------------------------------------------------------------------------
+#  Engineering CLI toolkit  (/opt/hydra-tools, world-readable)
+# ---------------------------------------------------------------------------
+- name: Create engineering toolkit directory
+  ansible.builtin.file:
+    path: "{{ ww_eng_tools_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install engineering CLI tools
+  ansible.builtin.copy:
+    src: "tools/{{ item }}"
+    dest: "{{ ww_eng_tools_dir }}/{{ item }}"
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - pcom_client.py
+    - mbtool.py
+    - tagmon.py
+    - mbclient.py
+
+- name: Install engineering toolkit README
+  ansible.builtin.template:
+    src: hydra-tools-README.md.j2
+    dest: "{{ ww_eng_tools_dir }}/README.md"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Byte-compile the toolkit (sanity check at deploy time)
+  ansible.builtin.command:
+    cmd: "python3 -m py_compile pcom_client.py mbtool.py tagmon.py mbclient.py"
+    chdir: "{{ ww_eng_tools_dir }}"
+  changed_when: false
+
+# ---------------------------------------------------------------------------
+#  PLC project / engineering files  (owned by m.oyelaran)
+# ---------------------------------------------------------------------------
+- name: Create project directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: m.oyelaran
+    group: m.oyelaran
+    mode: "0750"
+  loop:
+    - "{{ ww_eng_projects_dir }}"
+    - "{{ ww_eng_projects_dir }}/addressing"
+
+- name: Render PLC project engineering files
+  ansible.builtin.template:
+    src: "projects/{{ item }}.j2"
+    dest: "{{ ww_eng_projects_dir }}/{{ item }}"
+    owner: m.oyelaran
+    group: m.oyelaran
+    mode: "0640"
+  loop:
+    - CEDAR_INTAKE_PLC01_M340.md
+    - CEDAR_WTP_CHEMFEED_PLC02_V570.md
+    - HILLTOP_RTU03_main.st
+    - Hilltop_Surge_Analysis_2019.md
+    - addressing/CEDAR_INTAKE_PS1_addressing.csv
+    - addressing/CEDAR_WTP_CHEMFEED_addressing.csv
+    - addressing/HILLTOP_RTU03_addressing.csv
+  loop_control:
+    label: "{{ item }}"
+
+- name: Initialize the project git repository (realism)
+  # Run as root and switch to m.oyelaran with runuser. Using become_user to an
+  # unprivileged account makes Ansible try to ACL its temp files, which fails on
+  # a minimal Debian host without the `acl` package ("chmod: invalid mode").
+  ansible.builtin.shell:
+    cmd: >-
+      runuser -u m.oyelaran -- bash -lc '
+      cd {{ ww_eng_projects_dir }} &&
+      git init -q &&
+      git config user.email "m.oyelaran@{{ ww_domain | default('waterworkspipeline.com') }}" &&
+      git config user.name "Marcus Oyelaran" &&
+      git add -A &&
+      git commit -q -m "Cedar Ridge PLC project files - as-built"'
+    creates: "{{ ww_eng_projects_dir }}/.git"
+  become: true
+
+- name: Plant m.oyelaran bash history
+  ansible.builtin.template:
+    src: home/m.oyelaran/.bash_history.j2
+    dest: /home/m.oyelaran/.bash_history
+    owner: m.oyelaran
+    group: m.oyelaran
+    mode: "0600"
+
+# ---------------------------------------------------------------------------
+#  Privilege escalation to root: SUID projbackup with a PATH-hijack flaw
+# ---------------------------------------------------------------------------
+- name: Stage projbackup C source
+  ansible.builtin.copy:
+    src: projbackup.c
+    dest: "{{ ww_eng_projbackup_src }}"
+    owner: root
+    group: root
+    mode: "0644"
+  register: projbackup_src
+
+- name: Ensure backup destination exists
+  ansible.builtin.file:
+    path: "{{ ww_eng_backup_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Compile projbackup (first deploy)
+  ansible.builtin.command:
+    cmd: "gcc -O2 -o {{ ww_eng_projbackup_bin }} {{ ww_eng_projbackup_src }}"
+    creates: "{{ ww_eng_projbackup_bin }}"
+
+- name: Recompile projbackup when source changes
+  ansible.builtin.command:
+    cmd: "gcc -O2 -o {{ ww_eng_projbackup_bin }} {{ ww_eng_projbackup_src }}"
+  when: projbackup_src is changed
+  changed_when: true
+
+- name: Make projbackup SUID root
+  ansible.builtin.file:
+    path: "{{ ww_eng_projbackup_bin }}"
+    owner: root
+    group: root
+    mode: "04755"
+
+- name: Install weekly projbackup cron (legitimate cover for the helper)
+  ansible.builtin.template:
+    src: projbackup.cron.j2
+    dest: /etc/cron.d/projbackup
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Plant root flag (eng_root)
+  ansible.builtin.copy:
+    dest: /root/flag.txt
+    content: "{{ ww_flags.eng_root }}\n"
+    owner: root
+    group: root
+    mode: "0600"
+
+# ---------------------------------------------------------------------------
+#  hydra_vendor home: bash history + vendor runbook
+# ---------------------------------------------------------------------------
+- name: Create hydra_vendor notes directory
+  ansible.builtin.file:
+    path: /home/hydra_vendor/notes
+    state: directory
+    owner: hydra_vendor
+    group: hydra_vendor
+    mode: "0750"
+
+- name: Plant hydra_vendor bash history
+  ansible.builtin.template:
+    src: home/hydra_vendor/.bash_history.j2
+    dest: /home/hydra_vendor/.bash_history
+    owner: hydra_vendor
+    group: hydra_vendor
+    mode: "0600"
+
+- name: Plant hydra_vendor remote-support runbook
+  ansible.builtin.template:
+    src: "home/hydra_vendor/notes/Cedar Ridge Remote Support.txt.j2"
+    dest: "/home/hydra_vendor/notes/Cedar Ridge Remote Support.txt"
+    owner: hydra_vendor
+    group: hydra_vendor
+    mode: "0640"

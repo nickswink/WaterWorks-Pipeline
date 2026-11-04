@@ -1,0 +1,43 @@
+WWP REMOTE ACCESS - FREQUENTLY ASKED QUESTIONS
+IT Helpdesk  |  x4100  |  helpdesk@{{ ww_domain }}          Updated 2026-07-09
+==============================================================================
+
+Q: How do I connect from home?
+A: Use the WWP VPN client (FortiClient) installed on your WWP laptop. Server:
+   vpn.{{ ww_domain }}. Sign in with your normal username (e.g. j.doe) and
+   password, then approve the push in the Authenticator app.
+
+Q: What can I reach on the VPN?
+A: Email, Teams, the file server (S: Public, plus your department share),
+   timekeeping, Cityworks and the intranet. The VPN puts you on the CORPORATE
+   network only.
+
+Q: Can I look at plant trends from home?
+A: Yes - the process historian has a read-only web trend viewer that is
+   reachable from the corporate network/VPN:
+       http://ww-hist01:8080   ({{ ww_net }}.30.10)
+   Ask Operations for a login; the guest view shows the main plant tags.
+
+Q: Can I get to the SCADA / HMI over the VPN?
+A: No. The SCADA control network is separated from the corporate network.
+   Control room staff use the HMI on site. IT and approved vendors reach the
+   control network only through the OT jump server, following the OT Remote
+   Access SOP (Engineering share). If you think you need OT access, talk to
+   Marcus Oyelaran (x4310).
+
+Q: I'm a vendor/contractor. How do I get access?
+A: Document and plan downloads are on the contractor portal,
+   https://portal.{{ ww_domain }}. Vendors needing SCADA support access are
+   handled by Engineering under their service contract - not by the helpdesk.
+
+Q: My VPN connects but the S: drive is missing.
+A: Open File Explorer and browse to \\ww-fs01\Public. If you get a password
+   prompt, use your WWP username/password. Still failing? Call x4100.
+
+Q: I forgot my password / I'm locked out.
+A: Call the helpdesk during business hours (7:00-4:30 M-F). After hours, call
+   the control room (x4220) and they will page on-call IT. We will verify your
+   identity using your employee ID and supervisor before resetting.
+
+Q: Can I use my personal computer?
+A: Not for VPN. Webmail (with MFA) is fine from a personal device.

@@ -1,0 +1,31 @@
+WWP IT RUNBOOK RB-03 - LINUX SERVER PATCHING
+Owner: Kevin Tran (Systems Administrator)          Rev. 2026-02-10
+-----------------------------------------------------------------------
+
+Scope: Corporate and DMZ Linux servers (ww-web01, ww-fs01, ww-it01).
+OT DMZ / SCADA servers (ww-hist01, ww-jump01, ww-hmi01, ww-eng01) are
+patched ONLY by Engineering/Hydra Controls during scheduled vendor visits.
+Do not touch them from IT.
+
+Window: 2nd Tuesday + 1 week, 18:00-21:00. Post in #it-changes first.
+
+Steps
+ 1. Confirm the nightly config backup on ww-it01 ran
+      ls -l /var/backups/it/
+ 2. Snapshot the VM in the hypervisor console (name: pre-patch-YYYYMMDD).
+ 3. On the server:
+      sudo apt update && apt list --upgradable
+      sudo apt -y upgrade
+      sudo needrestart -r l
+ 4. Reboot if a new kernel or libc was installed.
+ 5. Verify services:
+      ww-fs01   systemctl status smbd; smbclient -L //localhost -U <you>
+      ww-web01  curl -I http://localhost/ ; check /reports page loads
+      ww-it01   systemctl status cron ssh
+ 6. Delete the snapshot after 7 days if no issues.
+
+Known issues
+ - ww-web01: the CIFS mount of \\ww-fs01\Public for the CCR page sometimes
+   comes up before networking; `mount -a` fixes it.
+ - ww-fs01: after samba upgrades re-run `testparm -s` and make sure the
+   IT$ share is still hidden (browseable = no).

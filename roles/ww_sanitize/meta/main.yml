@@ -1,0 +1,20 @@
+galaxy_info:
+  role_name: ww_sanitize
+  author: risk3sixty
+  description: >-
+    Sanitizes range-build artifacts and automation IoCs from Linux hosts so the
+    environment reads as a genuine enterprise/utility estate: removes build-proxy
+    package sources, staging/temp directories, automation temp files, the default
+    template account, and build-time logs — without disturbing planted scenario
+    content (scenario users, their histories, seeded data).
+  license: MIT
+  min_ansible_version: "2.12"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+  galaxy_tags:
+    - sanitize
+    - ioc
+    - cleanup
+dependencies: []

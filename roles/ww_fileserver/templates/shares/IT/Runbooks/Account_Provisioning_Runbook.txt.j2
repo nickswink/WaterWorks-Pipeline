@@ -1,0 +1,33 @@
+WWP IT RUNBOOK RB-01 - ACCOUNT PROVISIONING / DEPROVISIONING
+Owner: Dana Whitfield (IT Manager)                 Rev. 2026-08-27
+-----------------------------------------------------------------------
+
+See also: S:\IT_Helpdesk\New_Hire_IT_Checklist.txt (helpdesk-facing).
+
+FILE SERVER (ww-fs01) - standalone Samba, local accounts
+  Groups -> shares:
+    engineering   Engineering (read/write)
+    eng_ro        Engineering (read only)
+    itstaff       IT$ (read/write), Public (write)
+    wq            Public (write)
+    hr            HR (read/write)
+    everyone      Public (read)
+  New user:
+    sudo useradd -M -s /usr/sbin/nologin -G <groups> <user>
+    sudo smbpasswd -a <user>
+  Review group membership quarterly:  getent group eng_ro engineering hr
+    ** Q3 review not done. eng_ro still has svc_ccrsync from INC-2291. **
+
+IT ADMIN SERVER (ww-it01) - local accounts
+  sudo useradd -m -s /bin/bash -G helpdesk <user>      (helpdesk staff)
+  sudo useradd -m -s /bin/bash -G itstaff <user>       (IT admins)
+  echo '<user>:WaterWorks<YYYY>!' | sudo chpasswd
+  TODO (IT-1182): add `sudo chage -d 0 <user>` here once the PAM change is
+  tested. Until then the user keeps the temp password until they change it.
+
+OT ACCESS - not provisioned by IT. Engineering adds keys on ww-jump01.
+
+DEPROVISIONING (same day as separation)
+  - Disable M365, remove from groups, `sudo usermod -L -e 1 <user>` on Linux
+    servers, `sudo smbpasswd -d <user>` on ww-fs01.
+  - Recover laptop/phone/badge.

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Admin{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="row-between">
+    <h1>Exercise Control</h1>
+    <div>
+      <a class="btn" href="{{ url_for('admin_export_solves') }}">Export solves CSV</a>
+      <a class="btn" href="{{ url_for('admin_export_submissions') }}">Export submissions CSV</a>
+      <form method="post" action="{{ url_for('admin_logout') }}" class="inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="ghost">Admin logout</button>
+      </form>
+    </div>
+  </div>
+</section>
+<section class="panel">
+  <h2>Teams</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>#</th><th>ID</th><th>Team</th><th class="num">Score</th><th class="num">Solves</th><th class="num">Penalty</th><th>Actions</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr><td class="num">{{ r.rank }}</td><td class="num dim">{{ r.id }}</td><td><a href="{{ url_for('admin', team=r.name) }}">{{ r.name }}</a></td>
+        <td class="num">{{ r.score }}</td><td class="num">{{ r.solves }}</td><td class="num">{{ r.penalty }}</td>
+        <td>
+          <form method="post" action="{{ url_for('admin_reset_team', tid=r.id) }}" class="inline" onsubmit="return confirm('Reset all solves and hint unlocks for team ID {{ r.id }}?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="ghost">Reset</button></form>
+          <form method="post" action="{{ url_for('admin_delete_team', tid=r.id) }}" class="inline" onsubmit="return confirm('Permanently delete team ID {{ r.id }}?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="ghost danger">Delete</button></form>
+        </td></tr>
+    {% else %}<tr><td colspan="7" class="dim">No teams.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</section>
+<section class="panel" id="challenges">
+  <h2>Challenges</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Key</th><th>Title</th><th>Category</th><th class="num">Pts</th><th class="num">Solves</th><th>Visible</th></tr></thead>
+    <tbody>
+    {% for c in chals %}
+      <tr class="{{ '' if c.visible else 'muted' }}"><td class="mono">{{ c.key }}</td><td>{{ c.title }}</td><td class="dim">{{ c.category }}</td>
+        <td class="num">{{ c.points }}</td><td class="num">{{ c.solves }}</td>
+        <td><form method="post" action="{{ url_for('admin_toggle', key=c.key) }}" class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="ghost">{{ 'Visible' if c.visible else 'Hidden' }}</button></form></td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+<section class="panel">
+  <div class="row-between">
+    <h2>Submissions {% if team_filter %}<span class="dim small">team: {{ team_filter }} · <a href="{{ url_for('admin') }}">clear</a></span>{% endif %}</h2>
+    <span class="dim small">latest 500</span>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Time</th><th>Team</th><th>Challenge</th><th>Result</th><th>Value (fingerprint)</th><th>Source IP</th></tr></thead>
+    <tbody>
+    {% for s in subs %}
+      <tr><td class="num">{{ s.ts | ts }}</td><td>{{ s.team_name }}</td><td class="mono">{{ s.challenge_key }}</td>
+        <td class="res-{{ s.result }}">{{ s.result }}</td><td class="mono small">{{ s.preview }}</td><td class="mono">{{ s.ip }}</td></tr>
+    {% else %}<tr><td colspan="6" class="dim">No submissions.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endblock %}

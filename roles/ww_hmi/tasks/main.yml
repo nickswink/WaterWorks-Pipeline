@@ -1,0 +1,199 @@
+---
+- name: Assert required scenario variables are provided by the range config
+  ansible.builtin.assert:
+    that:
+      - ww_flags is defined
+      - ww_flags.hmi_access is defined
+      - ww_hmi_api_token is defined
+      - ww_controlroom_password is defined
+      - ww_vnc_password is defined
+      - ww_net is defined
+    fail_msg: >-
+      ww_hmi needs ww_flags, ww_hmi_api_token, ww_controlroom_password,
+      ww_vnc_password and ww_net (global_role_vars in range.yaml).
+    quiet: true
+
+- name: Install the AquaView HMI and VNC console packages
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-flask
+      - python3-waitress
+      - x11vnc
+      - xvfb
+      - fluxbox
+      - xterm
+      - xfonts-base        # fonts for xterm/fluxbox on a minimal image
+      - x11-xkb-utils      # xkb data Xvfb needs to initialise the keymap
+      - x11-utils          # xdpyinfo (session readiness probe)
+      - net-tools
+    state: present
+    update_cache: true
+  register: ww_hmi_apt
+  until: ww_hmi_apt is succeeded
+  retries: 3
+  delay: 10
+
+- name: Create the AquaView application service account
+  ansible.builtin.user:
+    name: "{{ ww_hmi_app_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ ww_hmi_app_dir }}"
+    create_home: false
+
+- name: Create the VNC "remote operator support" account
+  ansible.builtin.user:
+    name: "{{ ww_hmi_vnc_user }}"
+    shell: /bin/bash
+    home: "/home/{{ ww_hmi_vnc_user }}"
+    create_home: true
+
+- name: Create application, config and VNC directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ ww_hmi_app_dir }}", owner: root, group: root, mode: "0755" }
+    - { path: "{{ ww_hmi_app_dir }}/templates", owner: root, group: root, mode: "0755" }
+    - { path: "{{ ww_hmi_conf_dir }}", owner: root, group: "{{ ww_hmi_app_user }}", mode: "0750" }
+    - { path: "/home/{{ ww_hmi_vnc_user }}/.vnc", owner: "{{ ww_hmi_vnc_user }}", group: "{{ ww_hmi_vnc_user }}", mode: "0700" }
+    - { path: "/home/{{ ww_hmi_vnc_user }}/Desktop", owner: "{{ ww_hmi_vnc_user }}", group: "{{ ww_hmi_vnc_user }}", mode: "0755" }
+
+- name: Deploy the AquaView application code
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ ww_hmi_app_dir }}/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - app.py
+    - mbclient.py
+  notify: Restart aquaview-hmi
+
+- name: Deploy the AquaView web templates
+  ansible.builtin.copy:
+    src: templates/
+    dest: "{{ ww_hmi_app_dir }}/templates/"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart aquaview-hmi
+
+- name: Render the AquaView runtime configuration (injects the hmi_access flag)
+  ansible.builtin.template:
+    src: aquaview.json.j2
+    dest: "{{ ww_hmi_conf_dir }}/aquaview.json"
+    owner: root
+    group: "{{ ww_hmi_app_user }}"
+    mode: "0640"
+  notify: Restart aquaview-hmi
+
+- name: Validate the rendered configuration is valid JSON
+  ansible.builtin.command: python3 -c "import json,sys; json.load(open(sys.argv[1]))" {{ ww_hmi_conf_dir }}/aquaview.json
+  changed_when: false
+
+- name: Byte-compile the AquaView application
+  ansible.builtin.command: python3 -m py_compile {{ ww_hmi_app_dir }}/app.py {{ ww_hmi_app_dir }}/mbclient.py
+  changed_when: false
+
+- name: Deploy the VNC session and console scripts
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "{{ ww_hmi_app_dir }}/{{ item }}"
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - vnc-session.sh
+    - console.sh
+  notify: Restart aquaview-vnc
+
+- name: Render the VNC desktop shift log (contains the hmi_access flag)
+  ansible.builtin.template:
+    src: Shift_Log.txt.j2
+    dest: "/home/{{ ww_hmi_vnc_user }}/Desktop/Shift_Log.txt"
+    owner: "{{ ww_hmi_vnc_user }}"
+    group: "{{ ww_hmi_vnc_user }}"
+    mode: "0644"
+
+- name: Create the classic-DES VNC password file (truncates to 8 chars by design)
+  ansible.builtin.command:
+    cmd: x11vnc -storepasswd {{ ww_vnc_password | quote }} /home/{{ ww_hmi_vnc_user }}/.vnc/passwd
+    creates: "/home/{{ ww_hmi_vnc_user }}/.vnc/passwd"
+
+- name: Secure the VNC password file
+  ansible.builtin.file:
+    path: "/home/{{ ww_hmi_vnc_user }}/.vnc/passwd"
+    owner: "{{ ww_hmi_vnc_user }}"
+    group: "{{ ww_hmi_vnc_user }}"
+    mode: "0600"
+
+- name: Install the systemd units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - aquaview-hmi.service
+    - aquaview-xvfb.service
+    - aquaview-vnc.service
+  notify:
+    - Reload systemd
+    - Restart aquaview-hmi
+    - Restart aquaview-xvfb
+    - Restart aquaview-vnc
+
+- name: Set the OT-style hostname
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+  ignore_errors: true
+
+- name: Enable and start the AquaView HMI and VNC console services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop:
+    - aquaview-hmi.service
+    - aquaview-xvfb.service
+    - aquaview-vnc.service
+
+- name: Wait for the HMI web listener
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ ww_hmi_port }}"
+    timeout: 60
+  register: ww_hmi_web_wait
+  failed_when: false          # don't abort the whole range deploy on one slow service
+
+- name: Warn if the HMI web UI did not come up in time
+  ansible.builtin.debug:
+    msg: >-
+      aquaview-hmi did not open {{ ww_hmi_port }} within the timeout. Deploy
+      continues. Check `systemctl status aquaview-hmi` on {{ inventory_hostname }}.
+  when: ww_hmi_web_wait is failed or (ww_hmi_web_wait.state is defined and ww_hmi_web_wait.state != 'started')
+
+- name: Wait for the VNC listener (Xvfb + x11vnc cold start can be slow)
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ ww_hmi_vnc_port }}"
+    timeout: 150
+  register: ww_hmi_vnc_wait
+  failed_when: false          # VNC is secondary; the hmi_access flag is also on the web Shift Log
+
+- name: Warn if the VNC console did not come up in time
+  ansible.builtin.debug:
+    msg: >-
+      aquaview-vnc did not open {{ ww_hmi_vnc_port }} within the timeout.
+      Deploy continues (web HMI is unaffected). Check on ww-hmi01:
+      `systemctl status aquaview-xvfb aquaview-vnc` and
+      `/tmp/aquaview-x11vnc.log`.
+  when: ww_hmi_vnc_wait is failed or (ww_hmi_vnc_wait.state is defined and ww_hmi_vnc_wait.state != 'started')

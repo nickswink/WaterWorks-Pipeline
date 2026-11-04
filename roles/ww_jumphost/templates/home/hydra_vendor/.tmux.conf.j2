@@ -1,0 +1,17 @@
+# Hydra Controls Integration - remote support session layout.
+# From this jump host the field network (VLAN 50 PLCs/RTU) is NOT routable
+# directly; it is reached only THROUGH the SCADA hosts:
+#   HMI     ww-hmi01 {{ ww_net }}.40.10  (web :80 / VNC :5900)
+#   ENG WS  ww-eng01 {{ ww_net }}.40.20  (ssh :22 - Modbus/PCOM tooling lives here)
+# Open a window per hop so support sessions stay tidy.
+
+set -g history-limit 20000
+set -g mouse on
+set -g base-index 1
+
+# Standard Hydra support windows
+new-session -s hydra -n local
+new-window  -n hmi  "echo 'HMI {{ ww_net }}.40.10  web :80 / VNC :5900'; exec bash"
+new-window  -n eng  "echo 'ssh ww-eng01 ({{ ww_net }}.40.20) - engineering, Modbus/PCOM to field'; exec bash"
+
+set -g status-right " ww-jump01 | OT DMZ hop -> SCADA "

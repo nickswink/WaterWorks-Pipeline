@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Error {{ code }}{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <h1 class="amber">ALARM {{ code }}</h1>
+  <p>{{ message }}</p>
+  <p><a href="{{ url_for('scoreboard') }}">Back to the scoreboard</a></p>
+</section>
+{% endblock %}

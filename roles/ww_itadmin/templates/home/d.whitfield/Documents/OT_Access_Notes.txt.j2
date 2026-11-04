@@ -1,0 +1,38 @@
+OT ACCESS NOTES - DW (personal, keep off the S: drive)
+last edit 2026-09-30
+------------------------------------------------------
+
+Path:  ww-it01 (here)  --ssh key-->  ww-jump01 {{ ww_net }}.30.20  -->  OT
+       `ssh ww-jump01` (config in ~/.ssh/config, key ~/.ssh/id_ed25519)
+       Firewall only allows SSH to the jump box FROM this server. Password
+       auth is off on the jump box, key only.
+
+On ww-jump01:
+ - My account is d.whitfield. No general sudo.
+ - Vendor (Hydra Controls) uses the hydra_vendor account on the jump box.
+ - To review Hydra's session logs I can switch to the vendor account:
+       sudo -u hydra_vendor less /opt/hydra/logs/<session>.log
+   (Marcus asked for this after the March visit. `sudo -l` shows the rule.)
+   Logs are named by date. Monthly review - I'm behind (Aug, Sep).
+
+SCADA side (VLAN 40) - only reachable FROM the jump box:
+ - ww-hmi01  {{ ww_net }}.40.10  AquaView HMI. web :80, VNC :5900
+       tunnel:  ssh -L 5900:{{ ww_net }}.40.10:5900 ww-jump01
+                then VNC viewer -> localhost:5900
+       web:     ssh -L 8080:{{ ww_net }}.40.10:80 ww-jump01
+                then http://localhost:8080
+       login is the shared control room one (binder in the control room /
+       Hydra has it in their notes on the jump box). NOT writing it here.
+ - ww-eng01  {{ ww_net }}.40.20  engineering workstation (Marcus's PLC
+       projects). Reachable only from ww-jump01 over SSH. I don't have an
+       account - Hydra does (hydra_vendor key on the jump box).
+
+Historian (OT DMZ) is reachable straight from corp:
+       http://{{ ww_net }}.30.10:8080   (guest view for trends)
+
+TODO
+ - IT-1268: kill the CHG-2023-114 web01 -> corp SSH rule. Ask Marcus if
+   anything still uses it (I don't think so).
+ - INC-2291 cleanup: take svc_ccrsync out of eng_ro on fs01.
+ - IT-1261: put the config backup cron back to nightly once retention works.
+ - Push Board again on the OT security package (shared logins, vendor MFA).

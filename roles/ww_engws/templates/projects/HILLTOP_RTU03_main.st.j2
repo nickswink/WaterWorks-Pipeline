@@ -1,0 +1,206 @@
+(*****************************************************************************
+ * HILLTOP_RTU03_main.st
+ *
+ * Hilltop Booster PS-3 + Summit Elevated Tank
+ * Controller : Control Microsystems / SCADAPack 474
+ * Protocol   : Modbus/TCP, tcp/502, unit 1  ({{ ww_net }}.50.30)
+ * Standard   : IEC 61131-3 Structured Text
+ * Integrator : Hydra Controls Integration LLC
+ * Engineer   : M. Oyelaran, {{ ww_org_name }}
+ *
+ * Station    : 8042 Hilltop Rd, Cedar Ridge
+ *
+ * Boosts Cedar Ridge WTP finished water up the hill through the 16" ductile
+ * iron transmission main to the 1.0 MG Summit elevated tank, which floats on
+ * the system and feeds four member towns. Two booster pumps (P-301/P-302),
+ * modulating flow-control valve FCV-301, and surge anticipator valve SAV-301.
+ *****************************************************************************)
+
+PROGRAM Hilltop_Main
+VAR
+    (* ---- measured (mapped to Input Registers) ---- *)
+    SUCTION_PRESS   : REAL;   (* IR0  psi            *)
+    DISCH_PRESS     : REAL;   (* IR1  psi (incl. transient) *)
+    FLOW            : REAL;   (* IR2  gpm            *)
+    FCV301_POS      : REAL;   (* IR3  %              *)
+    TANK_LEVEL      : REAL;   (* IR4  ft             *)
+    TANK_DEMAND     : REAL;   (* IR5  gpm            *)
+    PEAK_TRANSIENT  : REAL;   (* IR6  psi, 60 s peak *)
+    MAINT_LOCKOUT_S : INT;    (* IR7  s remaining    *)
+
+    (* ---- setpoints (mapped to Holding Registers) ---- *)
+    P301_MODE       : INT;    (* HR0  0 OFF/1 HAND/2 AUTO *)
+    P302_MODE       : INT;    (* HR1  0 OFF/1 HAND/2 AUTO *)
+    FCV301_SP       : REAL;   (* HR2  %        *)
+    FCV301_SLEW     : REAL;   (* HR3  %/s  [PROTECTIVE] *)
+    LEAD_START      : REAL;   (* HR10 ft       *)
+    LEAD_STOP       : REAL;   (* HR11 ft       *)
+    LAG_START       : REAL;   (* HR12 ft       *)
+    HL_CUTOFF_SP    : REAL;   (* HR13 ft   [PROTECTIVE] *)
+    HP_TRIP_SP      : REAL;   (* HR14 psi  [PROTECTIVE] *)
+    MAINT_KEY       : INT;    (* HR20 write key -> maintenance mode; reads 0 *)
+    MAINT_MODE      : BOOL;   (* HR21 1 = active (read only) *)
+    MAINT_TIMER     : INT;    (* HR22 s remaining *)
+
+    (* ---- commands / status (Coils & Discrete Inputs) ---- *)
+    P301_HAND_RUN   : BOOL;   (* CO0  *)
+    P302_HAND_RUN   : BOOL;   (* CO1  *)
+    HP_TRIP_EN      : BOOL;   (* CO10 [PROTECTIVE] high-discharge-pressure trip *)
+    HL_CUTOFF_EN    : BOOL;   (* CO11 [PROTECTIVE] tank high-level pump cutoff  *)
+    SAV_ARMED       : BOOL;   (* CO12 [PROTECTIVE] surge anticipator SAV-301    *)
+    ALARM_RESET     : BOOL;   (* CO13 momentary *)
+    P301_RUNNING    : BOOL;   (* DI0 *)
+    P302_RUNNING    : BOOL;   (* DI1 *)
+    HP_TRIP_ACTIVE  : BOOL;   (* DI2 *)
+    TANK_HH         : BOOL;   (* DI3 *)
+    TANK_OVERFLOW   : BOOL;   (* DI4 *)
+    SAV_OPEN        : BOOL;   (* DI5 *)
+    MAINT_BYPASS    : BOOL;   (* DI6 *)
+    MAIN_BREAK      : BOOL;   (* DI7 *)
+
+    (* ---- internal ---- *)
+    LeadRun         : BOOL;
+    LagRun          : BOOL;
+    ValveCmd        : REAL;
+END_VAR
+
+(*===========================================================================
+ * 1. MAINTENANCE MODE
+ *
+ * Writing the correct maintenance key to HR20 unlocks maintenance mode for
+ * 900 s. In maintenance mode the protective settings below are NOT forced back
+ * to their engineered values every scan, so a technician can exercise valves
+ * and pumps by hand. Five wrong keys within 60 s locks out HR20 for 120 s.
+ *
+ * (* Maintenance override key (HR20): {{ ww_rtu03_maint_key }} - per Hilltop Surge Study 2019; bypasses protective interlocks for valve exercising *)
+ *===========================================================================*)
+IF MAINT_KEY = {{ ww_rtu03_maint_key }} THEN
+    MAINT_MODE  := TRUE;
+    MAINT_TIMER := 900;
+    MAINT_KEY   := 0;            (* key is consumed; HR20 always reads 0 *)
+END_IF;
+
+IF MAINT_MODE THEN
+    MAINT_BYPASS := TRUE;
+    MAINT_TIMER  := MAINT_TIMER - 1;
+    IF MAINT_TIMER <= 0 THEN
+        MAINT_MODE   := FALSE;
+        MAINT_BYPASS := FALSE;
+    END_IF;
+ELSE
+    (* ---------------------------------------------------------------------
+     * PROTECTIVE SETTINGS — restored every scan outside maintenance mode.
+     * These guard the 1962 cast-iron Miller Creek crossing (see Hilltop
+     * Surge Analysis 2019). Do NOT weaken them in normal operation.
+     * --------------------------------------------------------------------- *)
+    HP_TRIP_SP   := 140.0;      (* HR14 psi  : trip pumps on high discharge pressure *)
+    HL_CUTOFF_SP := 35.00;      (* HR13 ft   : stop pumps on high tank level         *)
+    FCV301_SLEW  := 2.0;        (* HR3  %/s  : max valve stroke rate (anti water-hammer) *)
+    HP_TRIP_EN   := TRUE;       (* CO10 *)
+    HL_CUTOFF_EN := TRUE;       (* CO11 *)
+    SAV_ARMED    := TRUE;       (* CO12 : SAV-301 clamps transients at 165 psi *)
+    MAINT_BYPASS := FALSE;
+END_IF;
+
+(*===========================================================================
+ * 2. PUMP LEAD / LAG (on Summit Tank level)
+ *===========================================================================*)
+IF TANK_LEVEL <= LEAD_START THEN         (* 22.00 ft *)
+    LeadRun := TRUE;
+ELSIF TANK_LEVEL >= LEAD_STOP THEN       (* 33.00 ft *)
+    LeadRun := FALSE;
+END_IF;
+IF TANK_LEVEL <= LAG_START THEN          (* 19.00 ft *)
+    LagRun := TRUE;
+ELSIF TANK_LEVEL >= LEAD_STOP THEN
+    LagRun := FALSE;
+END_IF;
+
+(* lowest-numbered AUTO pump is lead *)
+IF P301_MODE = 2 THEN
+    P301_RUNNING := LeadRun;
+    P302_RUNNING := (P302_MODE = 2) AND LagRun;
+ELSIF P301_MODE = 1 THEN
+    P301_RUNNING := P301_HAND_RUN;
+ELSE
+    P301_RUNNING := FALSE;
+END_IF;
+IF P302_MODE = 1 THEN
+    P302_RUNNING := P302_HAND_RUN;
+END_IF;
+
+(*===========================================================================
+ * 3. FCV-301 CONTROL with slew-rate limit  [water-hammer protection]
+ *
+ * The valve command is rate-limited to FCV301_SLEW (%/s). The engineered
+ * 2.0 %/s full-close takes ~50 s, far longer than the 2L/a = 7.3 s critical
+ * period of the main, so Joukowsky surge stays well under the SAV clamp.
+ * Raising FCV301_SLEW shortens the closure and raises the transient.
+ *===========================================================================*)
+ValveCmd := FCV301_SP;
+IF ValveCmd > FCV301_POS + FCV301_SLEW THEN
+    FCV301_POS := FCV301_POS + FCV301_SLEW;     (* opening, rate-limited  *)
+ELSIF ValveCmd < FCV301_POS - FCV301_SLEW THEN
+    FCV301_POS := FCV301_POS - FCV301_SLEW;     (* closing, rate-limited  *)
+ELSE
+    FCV301_POS := ValveCmd;
+END_IF;
+
+(*===========================================================================
+ * 4. SAV-301 SURGE ANTICIPATOR LOGIC  [protective]
+ *
+ * When armed (CO12) SAV-301 opens to atmosphere on a rising pressure wave and
+ * clamps the transient at 165 psi, below the 240 psi burst pressure of the
+ * Miller Creek crossing. Disarming SAV-301 removes that clamp.
+ *===========================================================================*)
+IF SAV_ARMED AND DISCH_PRESS > 165.0 THEN
+    SAV_OPEN := TRUE;
+ELSE
+    SAV_OPEN := FALSE;
+END_IF;
+
+(*===========================================================================
+ * 5. HIGH-DISCHARGE-PRESSURE TRIP (HP)  [protective]
+ *===========================================================================*)
+IF HP_TRIP_EN AND DISCH_PRESS >= HP_TRIP_SP THEN
+    HP_TRIP_ACTIVE := TRUE;
+    P301_RUNNING   := FALSE;
+    P302_RUNNING   := FALSE;
+END_IF;
+
+(*===========================================================================
+ * 6. TANK HIGH-LEVEL CUTOFF (HL) and overflow alarm  [protective]
+ *===========================================================================*)
+IF HL_CUTOFF_EN AND TANK_LEVEL >= HL_CUTOFF_SP THEN
+    P301_RUNNING := FALSE;
+    P302_RUNNING := FALSE;
+END_IF;
+TANK_HH       := TANK_LEVEL >= 36.0;
+TANK_OVERFLOW := TANK_LEVEL >= 38.0;
+
+(*===========================================================================
+ * 7. MAIN BREAK DETECTION
+ *===========================================================================*)
+MAIN_BREAK := DISCH_PRESS >= 240.0;    (* Miller Creek crossing burst *)
+
+END_PROGRAM
+
+(*****************************************************************************
+ * ENGINEERING NOTES
+ *
+ * The protective settings in section 1 (HP_TRIP_SP, HL_CUTOFF_SP, FCV301_SLEW,
+ * HP_TRIP_EN, HL_CUTOFF_EN, SAV_ARMED) exist to protect the 1962 cast-iron
+ * Miller Creek crossing, the weakest link in the 16" main. Full hydraulic
+ * basis is in Hilltop_Surge_Analysis_2019.md. In short:
+ *
+ *   - Never close FCV-301 faster than the engineered 2.0 %/s slew with
+ *     SAV-301 disarmed.
+ *   - The crossing fails at >= 240 psi; a fast valve closure with SAV-301
+ *     disarmed can drive the transient well past that.
+ *
+ * Maintenance mode (HR20 key) deliberately lifts these guards so the crossing
+ * can be isolated and the valve exercised during the annual surge test. Return
+ * the RTU to normal (let maintenance time out) immediately afterward.
+ *
+ * Addressing export: addressing/HILLTOP_RTU03_addressing.csv
+ *****************************************************************************)

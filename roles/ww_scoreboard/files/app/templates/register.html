@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Register{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <h1>Register Team</h1>
+  <form method="post" class="stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Team name <input name="name" value="{{ name }}" required minlength="2" maxlength="32"></label>
+    <label>Password <input name="password" type="password" required minlength="8" autocomplete="new-password"></label>
+    <label>Confirm password <input name="password2" type="password" required minlength="8" autocomplete="new-password"></label>
+    <button>Register</button>
+  </form>
+  <p class="dim small">One account per team. Share the password with your teammates.</p>
+</section>
+{% endblock %}

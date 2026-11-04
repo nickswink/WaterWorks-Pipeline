@@ -1,0 +1,137 @@
+# Cedar Ridge WTP Chemical Feed — PLC02 Program Description
+
+| | |
+|---|---|
+| **Site** | Cedar Ridge WTP, chemical feed building |
+| **Controller** | Unitronics Vision V570 (V570-57-T20B), OS 4.12 |
+| **Protocols** | Modbus/TCP tcp/502 unit 1 **and** PCOM/TCP tcp/20256 (ASCII, protocol 101) |
+| **Network** | {{ ww_net }}.50.20  (ww-plc02, VLAN 50 Field) |
+| **Integrator** | Hydra Controls Integration LLC |
+| **Engineer** | M. Oyelaran, {{ ww_org_name }} |
+
+## 1. Process narrative
+
+The chemical-feed PLC flow-paces two chemicals into finished water:
+
+- **Caustic soda (NaOH)** for pH / corrosion-control. The metering pump speed
+  is paced to plant flow to hold the dose setpoint `NAOH_DOSE_SP` (ppm).
+- **Chlorine (Cl2)** for primary disinfection, paced to `CL2_DOSE_SP`.
+
+NaOH dosing runs in AUTO (`DOSE_MODE = 2`). The pH loop model behaves as:
+
+```
+finished_pH ≈ RAW_PH + 2.2 · log10(1 + dose_ppm / 40)
+```
+
+so the normal 100 ppm dose on ~6.8 raw water yields ~8.0 finished pH, with a
+first-order lag of τ ≈ 12 s. The HMI faceplate restricts `NAOH_DOSE_SP` to the
+**0–200 ppm** operator range.
+
+## 2. Memory map — Vision operands
+
+The V570 uses **Memory Integers (MI)** and **Memory Bits (MB)**. The Modbus/TCP
+gateway on tcp/502 maps a *window* of operand memory:
+
+```
+MI 0-999  <->  Holding Registers 0-999   (FC03/06/16)
+MB 0-999  <->  Coils 0-999               (FC01/05/15)
+```
+
+> **IMPORTANT — PCOM-only memory.** The Modbus gateway only reaches MI/MB
+> **0–999**. Operands at **MI 3000 and above**, and the controller **RUN/STOP**
+> state, are reachable **only over PCOM/TCP (tcp/20256)**, not over Modbus.
+> Use `pcom_client.py` for anything in that range.
+
+### Memory Integers
+
+| MI | Tag | Units | Default | Modbus? |
+|---|---|---|---|---|
+| 0 | PLANT_FLOW | MGD ×100 | ~500 | yes (HR0) |
+| 1 | NAOH_DOSE_SP | ppm | 100 | yes (HR1) |
+| 2 | NAOH_DOSE_PV | ppm | — | yes |
+| 3 | FINISHED_PH | pH ×100 | ~800 | yes |
+| 4 | NAOH_PUMP_SPEED | % ×10 | — | yes |
+| 5 | CL2_DOSE_SP | mg/L ×100 | 150 | yes |
+| 6 | CL2_RESIDUAL | mg/L ×100 | — | yes |
+| 7 | CLEARWELL_LEVEL | ft ×100 | — | yes |
+| 8 | RAW_PH | pH ×100 | ~680 | yes |
+| 9 | NAOH_TANK_LEVEL | % ×10 | — | yes |
+| 10 | PH_HI_SP | pH ×100 | 850 | yes |
+| 11 | PH_HIHI_SP | pH ×100 | 950 | yes |
+| 12 | DOSE_MODE | 0 OFF / 1 MAN / 2 AUTO | 2 | yes |
+| 20 | HEARTBEAT | counter | — | yes |
+| 900-923 | PANEL_MSG | ASCII (48 ch) | "CEDAR RIDGE WTP - CHEMICAL FEED" | yes |
+| 930-953 | EVENT_A_TEXT | ASCII (NaOH event banner) | — | yes |
+| 960-983 | EVENT_B_TEXT | ASCII (defacement banner) | — | yes |
+| **3000-3023** | **COMMISSIONING_NOTE** | **ASCII** | *see §6* | **NO — PCOM only** |
+
+### Memory Bits
+
+| MB | Tag | Default | Modbus? |
+|---|---|---|---|
+| 0 | NAOH_PUMP_EN | 1 | yes (coil 0) |
+| 1 | CL2_FEED_EN | 1 | yes |
+| 2 | PH_HIHI_CUTOUT_EN | 1 | yes |
+| 3 | ALARM_RESET | 0 (momentary) | yes |
+
+### Discrete status (read as DI over Modbus)
+
+| DI | Tag |
+|---|---|
+| 0 | NAOH_PUMP_RUNNING |
+| 1 | PH_HI_ALARM |
+| 2 | PH_HIHI_ALARM |
+| 3 | PLC_RUN (1 = RUN, 0 = STOP) |
+
+## 3. Interlocks — pH HI / HIHI protection
+
+- **PH_HI_SP (MI 10, pH 8.50)** raises the high-pH alarm (DI 1).
+- **PH_HIHI_SP (MI 11, pH 9.50)** raises the high-high alarm (DI 2).
+- **PH_HIHI_CUTOUT (MB 2, default 1).** This is the protective cut-out: while
+  enabled, the NaOH metering pump is **forced off** whenever `FINISHED_PH`
+  reaches `PH_HIHI_SP`, and stays off until pH falls back below `PH_HI_SP`.
+  This single interlock is what keeps a dosing fault from caustic-overdosing
+  the distribution system. **Do not clear MB 2 in service.**
+
+Overdosing finished water would require clearing `PH_HIHI_CUTOUT_EN` **and**
+commanding a dose far above the 0–200 ppm faceplate limit — which the HMI will
+not send, but PCOM/Modbus writes to MI 1 are not range-checked by the PLC.
+
+## 4. Operator panel
+
+The V570 front-panel line is driven from `PANEL_MSG` (MI 900-923), nominally:
+
+```
+CEDAR RIDGE WTP - CHEMICAL FEED
+```
+
+Any value other than the engineered default is treated as tampering and latches
+the defacement alarm banner (MI 960-983).
+
+## 5. PLC RUN / STOP (PCOM)
+
+The V570 RUN/STOP mode is **not** on the Modbus map. Over PCOM/TCP:
+
+```
+pcom_client.py {{ ww_net }}.50.20 id        # model + RUN/STOP state
+pcom_client.py {{ ww_net }}.50.20 stop      # CCS -> STOP (outputs de-energize, memory frozen)
+pcom_client.py {{ ww_net }}.50.20 run       # CCR -> RUN
+```
+
+Placing the PLC in STOP de-energizes both metering pumps and freezes memory —
+the plant is effectively off-line until returned to RUN.
+
+## 6. Commissioning note — Hydra Controls
+
+A commissioning signature was written to `COMMISSIONING_NOTE` (**MI 3000-3023**)
+during the 2017-05 FAT by Hydra Controls. Because that operand is above the
+Modbus gateway window, it can only be read back over PCOM:
+
+```
+pcom_client.py {{ ww_net }}.50.20 rw 3000 24 --text
+```
+
+Keep the note intact — the AquaHistorian commissioning audit reads it to confirm
+the correct program revision is loaded.
+
+See `addressing/CEDAR_WTP_CHEMFEED_addressing.csv` for the full operand export.

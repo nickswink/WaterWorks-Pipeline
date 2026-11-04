@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Public Notice Publisher — {{ org_name }}{% endblock %}
+{% block content %}
+<section class="page-head"><div class="container">
+  <h1>Public Notice Publisher</h1>
+  <p>Signed in as {{ user }} &middot; <a href="{{ url_for('portal_logout') }}">Sign out</a></p>
+</div></section>
+
+<section class="container">
+  <p class="muted">
+    Compose a public notice (boil-water advisory, flushing schedule, service
+    alert). Use <strong>Preview</strong> to see how it will render on the public
+    notices page, then <strong>Publish</strong> to make it live.
+  </p>
+
+  <form class="notice-form" method="post" action="{{ url_for('portal_admin') }}">
+    <label>Title
+      <input type="text" name="title" value="Precautionary Boil Water Advisory" required>
+    </label>
+    <label>Category
+      <select name="category">
+        <option>Boil Water Advisory</option>
+        <option selected>Flushing</option>
+        <option>Service Interruption</option>
+        <option>General</option>
+      </select>
+    </label>
+    <label>Notice body
+      <textarea name="body" rows="8" required>Crews will flush mains in the affected area. Discoloration may occur temporarily.</textarea>
+    </label>
+    <div class="form-actions">
+      <button class="btn btn-preview" type="submit" name="action" value="preview">Preview</button>
+      <button class="btn" type="submit" name="action" value="publish">Publish</button>
+    </div>
+  </form>
+
+  {% if preview_html %}
+  <div class="preview-pane">
+    <h2>Preview</h2>
+    {{ preview_html|safe }}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

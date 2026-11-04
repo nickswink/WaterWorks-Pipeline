@@ -1,0 +1,22 @@
+{{ ww_org_name }} - OT Remote Access Jump Host (ww-jump01)
+=========================================================
+
+Authorized vendor & IT use only. This box is the controlled hop between the
+corporate network and the SCADA control center. Everything into SCADA/field
+goes through here - do not pivot without a change ticket.
+
+SCADA network reachable from here:
+  - HMI  (ww-hmi01)  {{ ww_net }}.40.10   web :80 / VNC :5900
+  - ENG WS (ww-eng01) {{ ww_net }}.40.20  ssh :22 (vendor account only)
+
+IT tasks on this host (see SOP OT-RA-03):
+  - Reviewing Hydra Controls remote-support session logs:
+      sudo -u hydra_vendor less /opt/hydra/logs/session-YYYY-MM-DD.log
+    (ticket IT-1182 - IT reviews vendor sessions without holding vendor creds)
+  - Operator HMI support is done over VNC to {{ ww_net }}.40.10:5900.
+
+Engineering workstation access (ww-eng01) is owned by Hydra Controls
+Integration and keyed to their vendor account only. If you need a change on
+ww-eng01, open a ticket with Hydra - do NOT try to log in as yourself.
+
+  - D. Whitfield, IT

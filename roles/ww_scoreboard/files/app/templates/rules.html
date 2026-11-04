@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Rules of Engagement{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Rules of Engagement</h1>
+  <p>You are an authorized red team assessing WaterWorks Pipeline Co.'s Cedar Ridge Regional
+  Transmission System. Your connection represents the public internet: only the DMZ is reachable
+  directly, and everything else must be reached by pivoting.</p>
+
+  <h2>In scope</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>VLAN</th><th>Subnet</th><th>Zone</th></tr></thead>
+    <tbody>
+      <tr><td class="num">10</td><td class="mono">{{ net }}.10.0/24</td><td>Internet DMZ</td></tr>
+      <tr><td class="num">20</td><td class="mono">{{ net }}.20.0/24</td><td>Corporate IT</td></tr>
+      <tr><td class="num">30</td><td class="mono">{{ net }}.30.0/24</td><td>OT DMZ</td></tr>
+      <tr><td class="num">40</td><td class="mono">{{ net }}.40.0/24</td><td>SCADA control center</td></tr>
+      <tr><td class="num">50</td><td class="mono">{{ net }}.50.0/24</td><td>Field controllers</td></tr>
+    </tbody>
+  </table></div>
+  <p class="dim small">Range gateway addresses (<span class="mono">.254</span> on every VLAN) are excluded, see below.</p>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>The scoreboard host <span class="mono">ww-score</span> and all of VLAN 60 (<span class="mono">{{ net }}.60.0/24</span>).</li>
+    <li>The range router / gateway (every <span class="mono">.254</span> address) and the VPN endpoint.</li>
+    <li>Other teams' machines and accounts. Do not attack, sabotage, or lock out other players.</li>
+    <li>Anything outside <span class="mono">{{ net }}.10.0/24</span> through <span class="mono">{{ net }}.50.0/24</span>.</li>
+  </ul>
+
+  <h2>Conduct</h2>
+  <ul>
+    <li>No denial of service against the scoreboard, and no brute forcing of scoreboard logins.</li>
+    <li>Do not shut down, reboot, wipe, or permanently break in-scope hosts. Others share this range.</li>
+    <li>Do not change shared credentials in ways that lock other teams out.</li>
+    <li>Do not share flags or answers with other teams.</li>
+    <li>Impact events latch and then automatically restore after about {{ hold_min }} minutes.
+        If the plant looks stuck, wait for the restore before asking staff.</li>
+  </ul>
+
+  <h2>Scoring</h2>
+  <ul>
+    <li>Flags look like <span class="mono">WTR{...}</span>. Leading and trailing whitespace is ignored.
+        Intel answers are not case-sensitive; all other flags are.</li>
+    <li>Unlocking a hint costs {{ hint_pct }}% of that challenge's points, even if you never solve it.</li>
+    <li>At most {{ rate_wrong }} wrong submissions per team every {{ rate_window }} seconds.</li>
+    <li>Ties are broken by whichever team reached the score first. The first team to solve a
+        challenge earns a first-blood marker (<span class="blood">&#9670;</span>).</li>
+    <li>Every submission is logged with its source IP.</li>
+  </ul>
+</section>
+{% endblock %}

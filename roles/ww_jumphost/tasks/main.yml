@@ -1,0 +1,274 @@
+---
+- name: Assert required range-wide variables are defined
+  ansible.builtin.assert:
+    that:
+      - ww_flags is defined
+      - ww_flags.jump_vendor is defined
+      - ww_net is defined
+      - ww_org_name is defined
+      - ww_controlroom_password is defined
+      - ww_vnc_password is defined
+    fail_msg: "ww_jumphost requires the WaterWorks global_role_vars (ww_flags.jump_vendor, ww_net, ww_org_name, ww_controlroom_password, ww_vnc_password)."
+    quiet: true
+
+- name: Install jump-host tooling
+  ansible.builtin.apt:
+    name: "{{ ww_jump_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# ---------------------------------------------------------------------------
+#  Accounts
+# ---------------------------------------------------------------------------
+- name: Create jump-host user accounts
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    comment: "{{ item.comment }}"
+    shell: /bin/bash
+    create_home: true
+    home: "/home/{{ item.name }}"
+    groups: "{{ item.groups }}"
+    append: false
+    password: "{{ item.password | password_hash('sha512', item.salt) }}"
+    update_password: always
+    state: present
+  loop: "{{ ww_jump_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+
+- name: Set home directory permissions
+  ansible.builtin.file:
+    path: "/home/{{ item.name }}"
+    state: directory
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: "0750"
+  loop: "{{ ww_jump_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+# ---------------------------------------------------------------------------
+#  SSH daemon: this is a jump host.
+#    * password auth ON   (IT also keeps a password; MFA is on the VPN)
+#    * TCP forwarding ON   (its whole purpose - SSH -J / -L / -D through here)
+#    * root login OFF
+#  LESSSECURE is deliberately NOT set anywhere: less shell escapes stay live,
+#  which is what makes the sudo -> less -> hydra_vendor pivot work.
+# ---------------------------------------------------------------------------
+- name: Configure sshd for jump-host use (sorted first so it wins)
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/00-wwp-jump.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # WWP OT remote-access jump host (ww-jump01).
+      # Controlled hop: IT admins (key from ww-it01) and vendor support only.
+      PasswordAuthentication yes
+      PubkeyAuthentication yes
+      PermitRootLogin no
+      # Jump host: forwarding/tunnels are required for operator & vendor access
+      # to the SCADA segment (HMI web/VNC, engineering SSH).
+      AllowTcpForwarding yes
+      AllowAgentForwarding yes
+      GatewayPorts no
+      X11Forwarding no
+  notify: Restart ssh
+
+- name: Validate sshd configuration
+  ansible.builtin.command: sshd -t
+  changed_when: false
+
+# ---------------------------------------------------------------------------
+#  d.whitfield - the account IT logs in as (public key from ww-it01).
+# ---------------------------------------------------------------------------
+- name: Create d.whitfield directories
+  ansible.builtin.file:
+    path: "/home/d.whitfield/{{ item.path }}"
+    state: directory
+    owner: d.whitfield
+    group: d.whitfield
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: .ssh, mode: "0700" }
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Install d.whitfield authorized_keys (login key from ww-it01)
+  ansible.builtin.copy:
+    src: dwhitfield_jump.pub
+    dest: /home/d.whitfield/.ssh/authorized_keys
+    owner: d.whitfield
+    group: d.whitfield
+    mode: "0600"
+
+- name: Plant d.whitfield home content
+  ansible.builtin.template:
+    src: "home/d.whitfield/{{ item.src }}.j2"
+    dest: "/home/d.whitfield/{{ item.src }}"
+    owner: d.whitfield
+    group: d.whitfield
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: .bash_history, mode: "0600" }
+    - { src: README.txt, mode: "0644" }
+  loop_control:
+    label: "{{ item.src }}"
+
+# ---------------------------------------------------------------------------
+#  hydra_vendor - vendor remote-support account.
+#  Its ~/.ssh holds the PRIVATE key to ww-eng01 (installed as id_ed25519) and
+#  an ssh config so that `ssh ww-eng01` just works once you ARE hydra_vendor.
+#  Whoever pivots into this account (via the sudo->less escape) gets the key.
+# ---------------------------------------------------------------------------
+- name: Create hydra_vendor directories
+  ansible.builtin.file:
+    path: "/home/hydra_vendor/{{ item.path }}"
+    state: directory
+    owner: hydra_vendor
+    group: hydra_vendor
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: .ssh, mode: "0700" }
+    - { path: notes, mode: "0700" }
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Install hydra_vendor engineering key (becomes ~/.ssh/id_ed25519)
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "/home/hydra_vendor/.ssh/{{ item.dest }}"
+    owner: hydra_vendor
+    group: hydra_vendor
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: hydra_vendor_eng, dest: id_ed25519, mode: "0600" }
+    - { src: hydra_vendor_eng.pub, dest: id_ed25519.pub, mode: "0644" }
+  loop_control:
+    label: "{{ item.dest }}"
+
+- name: Plant hydra_vendor SSH config, notes, and tmux config
+  ansible.builtin.template:
+    src: "home/hydra_vendor/{{ item.src }}.j2"
+    dest: "/home/hydra_vendor/{{ item.src }}"
+    owner: hydra_vendor
+    group: hydra_vendor
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: .ssh/config, mode: "0600" }
+    - { src: .bash_history, mode: "0600" }
+    - { src: .tmux.conf, mode: "0644" }
+    - { src: notes/site_contacts.txt, mode: "0600" }
+  loop_control:
+    label: "{{ item.src }}"
+
+- name: Plant hydra_vendor flag (reward for pivoting to the vendor account)
+  ansible.builtin.template:
+    src: home/hydra_vendor/flag.txt.j2
+    dest: /home/hydra_vendor/flag.txt
+    owner: hydra_vendor
+    group: hydra_vendor
+    mode: "0600"
+
+# ---------------------------------------------------------------------------
+#  Hydra Controls Integration remote-support area.
+#  Session logs are owned by hydra_vendor and are exactly what the sudo rule
+#  lets d.whitfield read with `less` (the intended shell-escape pivot).
+# ---------------------------------------------------------------------------
+- name: Create Hydra support directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: hydra_vendor
+    group: hydra_vendor
+    mode: "0755"
+  loop:
+    - "{{ ww_jump_hydra_dir }}"
+    - "{{ ww_jump_hydra_logs_dir }}"
+
+- name: Install Hydra support README
+  ansible.builtin.template:
+    src: opt/hydra/README.j2
+    dest: "{{ ww_jump_hydra_dir }}/README"
+    owner: hydra_vendor
+    group: hydra_vendor
+    mode: "0644"
+
+- name: Install Hydra vendor session logs (readable by the sudo rule)
+  ansible.builtin.template:
+    src: "opt/hydra/logs/{{ item }}.j2"
+    dest: "{{ ww_jump_hydra_logs_dir }}/{{ item }}"
+    owner: hydra_vendor
+    group: hydra_vendor
+    mode: "0640"
+  loop:
+    - session-2026-10-09.log
+    - session-2026-10-12.log
+    - session-2026-10-14.log
+  loop_control:
+    label: "{{ item }}"
+
+# ---------------------------------------------------------------------------
+#  THE PRIVESC / LATERAL PIVOT (sudo misconfiguration).
+#  d.whitfield may run `sudo -u hydra_vendor /usr/bin/less /opt/hydra/logs/*`
+#  with NOPASSWD. less honours shell escapes (!sh / v then :!/bin/sh) because
+#  LESSSECURE is not set, so reviewing a log turns into a shell as hydra_vendor,
+#  which owns ~/.ssh/id_ed25519 and thus access to ww-eng01.
+#  visudo -cf validates the file before it is installed.
+# ---------------------------------------------------------------------------
+- name: Install IT -> OT vendor-log sudo rule
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/it-ot-support
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "/usr/sbin/visudo -cf %s"
+    content: |
+      # IT reviews vendor session logs (ticket IT-1182 / SOP OT-RA-03).
+      # Lets the IT manager read Hydra's remote-support logs without holding
+      # the vendor's credentials. Scoped to less on the log directory only.
+      d.whitfield ALL=(hydra_vendor) NOPASSWD: /usr/bin/less /opt/hydra/logs/*
+
+# ---------------------------------------------------------------------------
+#  Believable bastion: banners, motd, hosts.
+# ---------------------------------------------------------------------------
+- name: Install login banners (issue.net + motd)
+  ansible.builtin.template:
+    src: "etc/{{ item.src }}.j2"
+    dest: "/etc/{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - { src: issue.net, dest: issue.net }
+    - { src: motd, dest: motd }
+  loop_control:
+    label: "{{ item.dest }}"
+
+- name: Point sshd at the pre-auth banner
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/10-wwp-banner.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      Banner /etc/issue.net
+  notify: Restart ssh
+
+- name: Add internal host names
+  ansible.builtin.blockinfile:
+    path: /etc/hosts
+    marker: "# {mark} WWP internal hosts"
+    block: |
+      {{ ww_net }}.30.10   ww-hist01.wwp.local  ww-hist01
+      {{ ww_net }}.30.20   ww-jump01.wwp.local  ww-jump01
+      {{ ww_net }}.40.10   ww-hmi01.wwp.local   ww-hmi01
+      {{ ww_net }}.40.20   ww-eng01.wwp.local   ww-eng01
+
+- name: Ensure SSH is enabled and running
+  ansible.builtin.systemd:
+    name: ssh
+    state: started
+    enabled: true

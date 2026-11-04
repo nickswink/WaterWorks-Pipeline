@@ -1,0 +1,33 @@
+=== my helpdesk notes (Jordan) ===
+
+week 1 (9/8)
+- ext 4117, helpdesk line x4100 rings to me + Kevin
+- creds: email = changed day 1 (forced). ww-it01 = still the temp one,
+  Dana said there's no forced change on the linux boxes yet (IT-1182).
+  TODO change it!!  (passwd)
+- file server: \\ww-fs01\Public = S: for everyone. IT$ is hidden, type the
+  name in. I'm in itstaff on fs01 but my fs01 pw is different (Kevin set it)
+- printers: Admin 2nd floor = MFP-ADM2 (Ricoh), control room = HP M404 -
+  operators ALWAYS jam it with the shift report cardstock
+
+week 2
+- Dana: helpdesk owns the config backup script on this box
+  (/opt/it-scripts/nightly_config_backup.sh). helpdesk group can edit it,
+  runs from cron as root. if we add a path to the INCLUDE list, test it by
+  running it ourselves first (it'll fail on perms as us, that's ok)
+- cron is set to every minute right now b/c Dana was debugging retention,
+  don't panic about the log file size
+- DO NOT touch anything SCADA. OT requests -> Marcus (x4310). Only Dana has
+  a key for the OT jump box. The firewall only lets ww-it01 -> ww-jump01.
+- historian trends from office: http://ww-hist01:8080 (guest view)
+
+week 3-5
+- new laptop image for Ops: Win11 23H2 WWP-OPS-v4
+- Faith (lab) needs LIMS cert renewed every Oct - tell Sonia
+- the website pulls the water quality reports straight off the S: drive
+  (CCR folder) using svc_ccrsync. Elena saves the final PDF/TXT there.
+- svc_ccrsync is in some old Engineering group from INC-2291 - Kevin says
+  "leave it, it's on Dana's list"
+
+passwords policy (for users): 14 chars min, no reuse x10, 90 days for
+email. Service accounts don't expire (svc_*).

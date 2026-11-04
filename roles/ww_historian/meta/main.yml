@@ -1,0 +1,16 @@
+---
+galaxy_info:
+  role_name: ww_historian
+  author: risk3sixty
+  description: AquaHistorian 4.2 process historian (Flask/SQLite) with SCADA tag collector for the WaterWorks Pipeline range
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+  galaxy_tags:
+    - ics
+    - historian
+    - ctf
+dependencies: []

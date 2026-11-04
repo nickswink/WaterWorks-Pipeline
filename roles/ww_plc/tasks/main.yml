@@ -1,0 +1,109 @@
+---
+- name: Assert flags are provided by the range config
+  ansible.builtin.assert:
+    that:
+      - ww_flags is defined
+      - ww_flags.plc01_devid is defined
+    fail_msg: >-
+      ww_flags must be defined in range.yaml global_role_vars. See docs/DESIGN.md.
+    quiet: true
+
+- name: Assert a valid site profile
+  ansible.builtin.assert:
+    that:
+      - ww_plc_site in ['intake', 'chemfeed', 'booster']
+    fail_msg: "ww_plc_site must be one of intake|chemfeed|booster (got '{{ ww_plc_site }}')"
+    quiet: true
+
+- name: Install the Python 3 runtime (no third-party modules required)
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-minimal
+    state: present
+    update_cache: true
+  register: ww_plc_apt
+  until: ww_plc_apt is succeeded
+  retries: 3
+  delay: 10
+
+- name: Create the field controller service account
+  ansible.builtin.user:
+    name: "{{ ww_plc_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: /opt/wwfield
+    create_home: false
+
+- name: Create runtime and config directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.owner }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: /opt/wwfield, owner: root, mode: "0755" }
+    - { path: /etc/wwfield, owner: root, mode: "0755" }
+    - { path: /var/log/wwfield, owner: "{{ ww_plc_user }}", mode: "0750" }
+
+- name: Deploy the controller runtime
+  ansible.builtin.copy:
+    src: wwplc.py
+    dest: /opt/wwfield/wwplc.py
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart wwfield
+
+- name: Render the per-site controller configuration
+  ansible.builtin.template:
+    src: controller.json.j2
+    dest: /etc/wwfield/controller.json
+    owner: root
+    group: "{{ ww_plc_user }}"
+    mode: "0640"
+  notify: Restart wwfield
+
+- name: Validate the rendered controller configuration is valid JSON
+  ansible.builtin.command: python3 -c "import json,sys; json.load(open(sys.argv[1]))" /etc/wwfield/controller.json
+  changed_when: false
+
+- name: Install the systemd unit
+  ansible.builtin.template:
+    src: wwfield.service.j2
+    dest: /etc/systemd/system/wwfield.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart wwfield
+
+- name: Set an OT-style hostname for the controller
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+  ignore_errors: true
+
+- name: Enable and start the field controller runtime
+  ansible.builtin.systemd:
+    name: wwfield.service
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Wait for the Modbus/TCP listener
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ ww_plc_modbus_port }}"
+    timeout: 60
+  register: ww_plc_wait
+  failed_when: false          # don't abort the whole range deploy on one slow service
+
+- name: Warn if the controller runtime did not open its port in time
+  ansible.builtin.debug:
+    msg: >-
+      wwfield did not open {{ ww_plc_modbus_port }} within the timeout on
+      {{ inventory_hostname }}. Deploy continues. Check:
+      `systemctl status wwfield` and `/var/log/wwfield/controller.log`.
+  when: ww_plc_wait is failed or (ww_plc_wait.state is defined and ww_plc_wait.state != 'started')

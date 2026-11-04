@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Public Notices — {{ org_name }}{% endblock %}
+{% block content %}
+<section class="page-head"><div class="container">
+  <h1>Public Notices</h1>
+  <p>Service alerts, flushing schedules, and water advisories.</p>
+</div></section>
+
+<section class="container">
+  {% if notices %}
+    <div class="notices">
+      {% for n in notices %}
+      <article class="notice" id="notice-{{ n.id }}">
+        <header>
+          <span class="badge">{{ n.category }}</span>
+          <h2>{{ n.title }}</h2>
+          <time>{{ n.published }}</time>
+        </header>
+        <div class="notice-body">{{ n.body }}</div>
+      </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">There are no public notices at this time. Check back during
+       planned maintenance or service events.</p>
+  {% endif %}
+</section>
+{% endblock %}

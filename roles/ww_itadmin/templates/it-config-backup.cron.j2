@@ -1,0 +1,12 @@
+# /etc/cron.d/it-config-backup
+# Nightly /etc config archive for {{ ansible_hostname | default('ww-it01') }} -> {{ ww_it_backup_dir }}
+# Script is maintained by the helpdesk in {{ ww_it_scripts_dir }} (see IT$\Runbooks\RB-05).
+#
+# Normal schedule (nightly 02:15):
+#15 2 * * *   root  {{ ww_it_scripts_dir }}/nightly_config_backup.sh >> {{ ww_it_backup_log }} 2>&1
+#
+# Running every minute while we debug the retention change - DW 2026-09-30
+# (put it back to nightly when done!)
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+* * * * *    root  {{ ww_it_scripts_dir }}/nightly_config_backup.sh >> {{ ww_it_backup_log }} 2>&1

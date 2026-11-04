@@ -1,0 +1,23 @@
+Hydra Controls Integration LLC - Remote Support Workspace
+=========================================================
+Customer: {{ ww_org_name }}  (Cedar Ridge Regional Transmission System)
+Host: ww-jump01  ({{ ww_net }}.30.20, OT DMZ / Purdue L3.5)
+
+This directory is the landing area for Hydra Controls Integration remote
+support. Hydra provides the SCADA/PLC integration for the Cedar Ridge system
+and connects through this jump host to service the engineering workstation
+(ww-eng01) and assist control-room operators on the HMI (ww-hmi01).
+
+Contents
+--------
+  logs/   Per-visit remote support session logs written by the vendor account
+          (hydra_vendor). IT reviews these under ticket IT-1182 / SOP OT-RA-03:
+              sudo -u hydra_vendor less /opt/hydra/logs/session-YYYY-MM-DD.log
+
+Scope of support
+----------------
+  - Engineering workstation ww-eng01 ({{ ww_net }}.40.20) over SSH, vendor key.
+  - HMI ww-hmi01 ({{ ww_net }}.40.10) web :80 / VNC :5900 for operator support.
+  - Field controllers (PLC/RTU) are serviced only via ww-eng01 / ww-hmi01.
+
+Support desk: support@hydracontrols.example  |  after-hours: 1-555-0142

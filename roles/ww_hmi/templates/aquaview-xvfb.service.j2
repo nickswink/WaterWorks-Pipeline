@@ -1,0 +1,14 @@
+[Unit]
+Description=AquaView operator console virtual framebuffer (Xvfb {{ ww_hmi_vnc_display }})
+After=network.target
+
+[Service]
+Type=simple
+User={{ ww_hmi_vnc_user }}
+Group={{ ww_hmi_vnc_user }}
+ExecStart=/usr/bin/Xvfb {{ ww_hmi_vnc_display }} -screen 0 {{ ww_hmi_vnc_geometry }} -ac -nolisten tcp
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

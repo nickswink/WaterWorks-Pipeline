@@ -1,0 +1,58 @@
+---
+# ww_sanitize — remove build-automation IoCs without touching scenario content.
+# This role runs LAST on every host (via depends_on in range.yaml).
+
+# Control switches
+ww_sanitize_clean_apt_proxy: true         # remove build-cache / proxy apt sources
+ww_sanitize_clean_staging: true           # remove automation staging dirs + temp files
+ww_sanitize_clean_build_history: true     # clear ONLY root + default-account shell history
+ww_sanitize_clean_build_logs: true        # truncate cloud-init / provisioning logs
+ww_sanitize_set_motd: true                # install a corporate MOTD
+ww_sanitize_spoof_dmi: true               # best-effort hardware vendor spoof in MOTD/inventory
+
+# The default account used by the build automation to manage the VM. On Debian
+# Ludus templates this is `debian` (connected to over SSH with a default
+# password). The automation needs this account to re-deploy or re-run roles, so
+# this role does NOT delete it or change its password during a normal deploy.
+ww_sanitize_default_user: debian
+
+# Remove a *stray* extra default account (e.g. a leftover `localuser`) if present.
+# This NEVER removes ww_sanitize_default_user (the management account) — doing so
+# would break the build automation. Safe to leave on.
+ww_sanitize_remove_extra_default_user: true
+ww_sanitize_extra_default_user: localuser
+
+# --- OPTIONAL final lockdown of the default management account --------------
+# When true, this sets a strong random password on the default account and
+# disables SSH password authentication for it, fully removing the default
+# username/password IoC.
+#
+# TRADE-OFF: after this runs, the build automation can no longer SSH in to
+# re-run roles on this host (`ludus range deploy` role runs will fail auth).
+# Snapshot-based reset (`ludus testing start/stop`) still works because it
+# reverts the Proxmox disk state and does not use SSH.
+#
+# Leave FALSE while iterating. Set TRUE in range.yaml global_role_vars for the
+# FINAL deploy, once the range content is frozen and you are handing it to
+# players. Default FALSE so normal deploys never lock Ludus out.
+ww_sanitize_lockdown_default_account: false
+ww_sanitize_locked_password_length: 32
+
+# Only this IP should be able to SSH in as a remaining admin account (the
+# build host). Set from global_role_vars ww_sanitize_ludus_source_ip.
+ww_sanitize_ludus_source_ip: "192.0.2.254"
+
+# Package-source hostnames/IPs that indicate a build cache/proxy and should be
+# stripped from apt sources if present.
+ww_sanitize_proxy_markers:
+  - "192.0.2.2"
+  - "192.0.2.3"
+
+# Hardware identity to present (purely cosmetic: MOTD + a dmidecode-style file).
+ww_sanitize_hw_manufacturer: "Dell Inc."
+ww_sanitize_hw_product: "PowerEdge R340"
+
+# Scenario accounts that must NEVER be touched by history/cleanup logic.
+# (Belt-and-suspenders: the role only ever cleans root + the default account.)
+ww_sanitize_protected_users:
+  - root

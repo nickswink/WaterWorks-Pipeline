@@ -1,0 +1,23 @@
+================================================================
+ CONTROL ROOM SHIFT LOG  —  {{ inventory_hostname }} (AquaView HMI)
+ {{ ww_org_name }} · Cedar Ridge Regional Transmission System
+================================================================
+
+** PINNED OPERATIONS NOTE **
+
+Shared control-room access is live. Per the Hilltop SOP, operators and
+vendor support share the `controlroom` login for the AquaView HMI web UI
+and this :5900 remote console. Rotate credentials at the next maintenance
+window.
+
+Shift verification token (record in the log book on hand-off):
+
+    {{ ww_flags.hmi_access }}
+
+----------------------------------------------------------------
+Recent entries
+----------------------------------------------------------------
+06:00  p.raman     Day shift start. All three stations in AUTO.
+09:42  p.raman     Hydra Controls remote support (VNC) for RTU03 check.
+13:15  r.castillo  Field check at PS-3 complete. FCV-301 stroking normally.
+18:00  controlroom Night shift hand-off. No outstanding alarms.

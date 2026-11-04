@@ -1,0 +1,16 @@
+# AquaHistorian {{ ww_hist_version }} server configuration
+# SCADA collector endpoint, token and poll interval are stored in the
+# system_config table of the historian database.
+
+[server]
+listen = {{ ww_hist_listen }}
+port = {{ ww_hist_port }}
+threads = {{ ww_hist_threads }}
+secret_key_file = {{ ww_hist_conf_dir }}/secret_key
+
+[database]
+path = {{ ww_hist_db }}
+
+[product]
+version = {{ ww_hist_version }}
+build = {{ ww_hist_build }}

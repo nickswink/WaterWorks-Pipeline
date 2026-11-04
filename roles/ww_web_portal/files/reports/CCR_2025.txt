@@ -1,0 +1,52 @@
+===============================================================================
+ WATERWORKS PIPELINE CO. - CEDAR RIDGE REGIONAL TRANSMISSION SYSTEM
+ 2025 CONSUMER CONFIDENCE REPORT (ANNUAL WATER QUALITY REPORT)
+ Covering monitoring results for calendar year 2025
+===============================================================================
+
+Is my water safe?
+  Yes. Last year, as in years past, your tap water met or exceeded all state
+  and federal drinking water standards. This report summarizes where your water
+  comes from, what it contains, and how it compares to the standards.
+
+Where does my water come from?
+  Source water is drawn from the Cedar River at Intake Pumping Station PS-1,
+  treated at the Cedar Ridge Water Treatment Plant, and delivered through our
+  38-mile regional transmission system to member communities.
+
+Treatment summary
+  - Coagulation, sedimentation, and filtration
+  - pH adjustment using sodium hydroxide (NaOH)
+  - Disinfection using chlorine (Cl2); a disinfectant residual is maintained
+    throughout the distribution system
+
+Detected contaminants (2025 monitoring)
+  Contaminant          Unit     MCL     MCLG    Result   Range         Status
+  -----------------------------------------------------------------------------
+  Total Coliform        %pos     5.0     0       0.0      0-0           PASS
+  Turbidity             NTU      TT      n/a     0.08     0.03-0.21     PASS
+  Chlorine (residual)   mg/L     MRDL 4  4       0.92     0.60-1.30     PASS
+  Lead (90th pct)       ppb      AL 15   0       1.9      ND-4.0        PASS
+  Copper (90th pct)     ppm      AL 1.3  1.3     0.12     ND-0.28       PASS
+  Nitrate (as N)        ppm      10      10      0.71     0.4-1.1       PASS
+  Total Trihalomethanes ppb      80      n/a     38       21-47         PASS
+  Haloacetic Acids      ppb      60      n/a     22       12-31         PASS
+  Fluoride              ppm      4.0     4.0     0.68     0.5-0.9       PASS
+
+Definitions
+  MCL   Maximum Contaminant Level      MCLG  Maximum Contaminant Level Goal
+  MRDL  Maximum Residual Disinfectant  AL    Action Level
+  TT    Treatment Technique            ND    Not Detected   NTU Nephelometric
+  ppm   parts per million (mg/L)       ppb   parts per billion (ug/L)
+
+Lead information
+  If present, elevated levels of lead can cause health problems. WaterWorks
+  Pipeline Co. is responsible for providing high quality drinking water but
+  cannot control the materials in home plumbing. Flush your tap 30 seconds to
+  2 minutes before using water for drinking or cooking if it has been sitting.
+
+Questions?
+  Water Quality Manager, WaterWorks Pipeline Co.
+  410 Riverside Dr, Cedar Ridge  -  Customer Service (555) 0142
+  service@waterworkspipeline.com
+===============================================================================

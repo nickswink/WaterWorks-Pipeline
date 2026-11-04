@@ -1,0 +1,9 @@
+# Cedar Ridge engineering workstation - weekly PLC project backup.
+#
+# projbackup snapshots ~m.oyelaran/projects to /var/backups/projects.tgz.
+# Engineers also run it by hand before editing a live PLC program.
+# Installed by Hydra Controls.
+SHELL=/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin
+
+0 2 * * 0 m.oyelaran /usr/local/bin/projbackup >/dev/null 2>&1

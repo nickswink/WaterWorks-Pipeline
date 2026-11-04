@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Water Quality — {{ org_name }}{% endblock %}
+{% block content %}
+<section class="page-head"><div class="container">
+  <h1>Water Quality</h1>
+  <p>Transparency about what's in your water.</p>
+</div></section>
+
+<section class="container prose">
+  <p>
+    Every year we test thousands of water samples for regulated and unregulated
+    contaminants. Our water meets or exceeds all state and federal drinking water
+    standards. The results are summarized in our annual Consumer Confidence
+    Report (CCR), also called the Annual Water Quality Report.
+  </p>
+
+  <h2>Consumer Confidence Reports</h2>
+  <p>Download the most recent reports below (plain-text format):</p>
+  <ul class="report-list">
+    <li>
+      <a href="{{ url_for('reports_download', file='CCR_2025.txt') }}">
+        2025 Consumer Confidence Report</a>
+      <span class="muted">Published annually &middot; covers calendar year 2025</span>
+    </li>
+    <li>
+      <a href="{{ url_for('reports_download', file='CCR_2024.txt') }}">
+        2024 Consumer Confidence Report</a>
+      <span class="muted">Published annually &middot; covers calendar year 2024</span>
+    </li>
+  </ul>
+  <p class="muted">
+    Looking for an older report? Archived CCRs are available on request from
+    Customer Service at (555) 0142.
+  </p>
+
+  <h2>Common questions</h2>
+  <h3>Why is my water sometimes cloudy?</h3>
+  <p>Cloudy or milky water is usually trapped air and is not a safety concern.
+     Let a glass stand for a moment and it should clear from the bottom up.</p>
+  <h3>What causes occasional discoloration?</h3>
+  <p>Routine main flushing or nearby hydrant use can stir up naturally occurring
+     mineral sediment. Run cold water for a few minutes to clear it.</p>
+  <h3>Is my water hard?</h3>
+  <p>Cedar Ridge water is moderately hard. Contact Customer Service for the
+     current hardness figures for your service area.</p>
+</div></section>
+{% endblock %}

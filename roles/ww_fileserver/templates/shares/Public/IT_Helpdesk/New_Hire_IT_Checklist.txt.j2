@@ -1,0 +1,54 @@
+WWP INFORMATION TECHNOLOGY
+NEW HIRE IT ONBOARDING CHECKLIST                         Rev. 7 - 2026-08-27
+Owner: Dana Whitfield, IT Manager                  Maintained by: IT Helpdesk
+------------------------------------------------------------------------------
+
+HR sends the signed Personnel Action Form (PAF) to helpdesk@{{ ww_domain }}
+at least 3 business days before the start date. Helpdesk completes the items
+below and returns the checklist to HR.
+
+1. ACCOUNTS
+   [ ] Username = first initial + "." + last name, lower case
+         e.g. Jane Q. Doe  ->  j.doe   (duplicates: add middle initial)
+   [ ] Email / Microsoft 365 mailbox, added to department distribution list
+   [ ] File server (\\ww-fs01) - add to the department group(s) listed on
+       the PAF. Public (S:) is mapped for everyone at logon.
+   [ ] IT staff only: local account on the IT admin server (ww-it01) and
+       membership in the "helpdesk" group for the shared scripts folder.
+   [ ] Timekeeping (Kronos), Work orders (Cityworks), Phone system (x4xxx)
+
+2. TEMPORARY PASSWORD
+   All new accounts are created with the standard temporary password:
+
+         WaterWorks<hire year>!
+
+   where <hire year> is the 4-digit year of the employee's start date
+   (example: someone starting in March 2025 receives "WaterWorks2025!").
+   Give the temporary password to the employee IN PERSON on day one. Never
+   email it, never leave it on a sticky note.
+
+   NOTE: "Force change at first login" is enabled for email / Microsoft 365
+   accounts but is NOT yet enabled for Linux server accounts (ww-it01 etc.)
+   - see ticket IT-1182. Until IT-1182 is closed, walk the new hire through
+   running `passwd` on their first day and initial this box: [   ]
+
+3. HARDWARE
+   [ ] Laptop imaged (Win11 23H2 WWP image), BitLocker escrowed
+   [ ] Docking station, 2 monitors, headset
+   [ ] Desk phone extension programmed; voicemail PIN set by employee
+   [ ] Mobile phone (on-call / field staff only)
+
+4. SECURITY
+   [ ] Acceptable Use Policy signed (HR keeps original)
+   [ ] Security awareness training assigned (due within 30 days)
+   [ ] MFA enrolled (Authenticator app) - required for VPN and email
+   [ ] Badge / door access (Admin bldg; WTP and pump stations ONLY if PAF
+       says Operations/Maintenance/Engineering)
+
+5. OT / SCADA
+   New hires do NOT get SCADA, HMI or engineering workstation access through
+   the helpdesk. Requests go to Marcus Oyelaran (SCADA/Controls) and must be
+   approved by the Plant Superintendent. See Engineering\SCADA\
+   OT_Remote_Access_SOP.txt (Engineering share - restricted).
+
+Completed by: ______________   Date: __________   Ticket #: ______________

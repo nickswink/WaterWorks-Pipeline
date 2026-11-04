@@ -1,0 +1,30 @@
+cd /opt/hydra-tools
+ls -l
+cat README.md
+./pcom_client.py --help
+./pcom_client.py {{ ww_net }}.50.20 id
+./pcom_client.py {{ ww_net }}.50.20 rw 0 13
+./pcom_client.py {{ ww_net }}.50.20 rw 3000 24 --text
+./pcom_client.py {{ ww_net }}.50.20 rb 0 4
+./mbtool.py {{ ww_net }}.50.10 devid
+./mbtool.py {{ ww_net }}.50.10 srvid
+./mbtool.py {{ ww_net }}.50.10 ri 0 12
+./mbtool.py {{ ww_net }}.50.10 rh 0 3
+./tagmon.py {{ ww_net }}.50.10 intake -n 3
+./mbtool.py {{ ww_net }}.50.30 rh 0 4
+./mbtool.py {{ ww_net }}.50.30 ri 0 8
+./tagmon.py {{ ww_net }}.50.30 booster -n 3
+cd ~/projects
+ls -l
+vi HILLTOP_RTU03_main.st
+git status
+git diff HILLTOP_RTU03_main.st
+git commit -am "RTU03: bump FCV-301 slew back to engineered 2.0%/s after surge test"
+scp CEDAR_WTP_CHEMFEED_PLC02_V570.md m.oyelaran@{{ ww_net }}.40.20:/home/m.oyelaran/projects/
+scp addressing/HILLTOP_RTU03_addressing.csv m.oyelaran@{{ ww_net }}.40.20:~/projects/addressing/
+less Hilltop_Surge_Analysis_2019.md
+cat notes/"Cedar Ridge Remote Support.txt"
+ssh m.oyelaran@{{ ww_net }}.40.20
+cd /opt/hydra-tools
+./pcom_client.py {{ ww_net }}.50.20 id
+exit

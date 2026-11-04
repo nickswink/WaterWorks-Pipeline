@@ -1,0 +1,24 @@
+passwd --help
+ls
+mkdir notes tickets
+cd notes
+nano helpdesk_notes.txt
+cd ~
+id
+groups
+ls -la /opt/it-scripts/
+cat /opt/it-scripts/nightly_config_backup.sh
+ls -l /var/backups/it/
+cat /etc/cron.d/it-config-backup
+smbclient -L //ww-fs01 -U j.alvarez
+smbclient //ww-fs01/Public -U j.alvarez -c 'ls IT_Helpdesk/*'
+smbclient '//ww-fs01/IT$' -U j.alvarez
+ping -c 2 ww-fs01
+curl -sI http://ww-web01/
+curl -s http://ww-hist01:8080/ | head -20
+ssh ww-jump01
+nano notes/helpdesk_notes.txt
+column -s, -t tickets/helpdesk_ticket_export_2026-10-15.csv | less -S
+grep -i open tickets/helpdesk_ticket_export_2026-10-15.csv
+w
+last | head

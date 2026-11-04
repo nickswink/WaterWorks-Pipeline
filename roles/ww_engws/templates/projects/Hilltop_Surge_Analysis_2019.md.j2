@@ -1,0 +1,107 @@
+# Hilltop Transmission Main — Transient (Surge) Analysis, 2019
+
+**Prepared for:** {{ ww_org_name }} — Cedar Ridge Regional Transmission System
+**Prepared by:** Hydra Controls Integration LLC (hydraulics) w/ M. Oyelaran, PE review
+**Subject:** Water-hammer protection of the Hilltop PS-3 → Summit Tank 16" main
+**Status:** Issued for construction (control settings implemented in RTU03)
+
+> A public summary of this study is filed on the corporate file server
+> (`Engineering\Hydraulics`). This is the full working copy.
+
+## 1. System
+
+| Parameter | Symbol | Value |
+|---|---|---|
+| Pipe material | — | 16" ductile iron (DI), cement-mortar lined |
+| Internal diameter | D | 0.406 m (16 in) |
+| Pipe cross-section | A | 0.1297 m² |
+| Main length, PS-3 → Summit | L | 4,023 m |
+| Pressure-wave (celerity) | a | ≈ 1,100 m/s (DI, restrained) |
+| Fluid density | ρ | 1,000 kg/m³ |
+| Booster pumps | — | 2 × identical, H0 = 110 psi shutoff, 3,000 gpm runout each |
+| Static lift (tank float) | — | ~45 psi suction + elevation |
+
+## 2. Critical timing
+
+The surge "critical period" — the longest valve-closure time that still produces
+the *full* Joukowsky head rise — is the wave round-trip time:
+
+```
+  T_crit = 2L / a = 2 × 4023 / 1100 = 7.3 s
+```
+
+Any valve closure completed in **≤ 7.3 s** is hydraulically "instantaneous" and
+develops the full Joukowsky transient. Slower (gradual) closures develop a
+reduced transient that scales roughly with (T_crit / T_close) — the Michaud /
+Allievi result for slow closures.
+
+## 3. Joukowsky head rise
+
+For a sudden velocity change Δv, the pressure rise is:
+
+```
+  ΔP = ρ · a · Δv
+```
+
+Normal operating flow ≈ 2,400 gpm → pipe velocity:
+
+```
+  v = Q / A = (2400 gpm × 6.309e-5 m³/s/gpm) / 0.1297 m² ≈ 1.17 m/s
+```
+
+Instantaneous full-flow stop:
+
+```
+  ΔP = 1000 × 1100 × 1.17 = 1.29e6 Pa ≈ 187 psi   (on top of line pressure)
+```
+
+## 4. Operating pressures and limits
+
+| Condition | Discharge pressure |
+|---|---|
+| Pump shutoff head H0 | ~110 psi |
+| Steady, valve closed (45 psi suction + H0) | ~155 psi |
+| HP trip setpoint (HR14) | **140 psi** |
+| SAV-301 clamp (armed) | **165 psi** |
+| **Miller Creek crossing burst (1962 cast iron)** | **≥ 240 psi** |
+
+- **Engineered slew (FCV301_SLEW = 2.0 %/s):** full 100→0 % close takes ~50 s,
+  far longer than T_crit. Resulting surge ≈ **+37 psi** → peak well under 165 psi.
+- **Fast close (≤ 7 s, slew raised to ≥ 5 %/s):** approaches instantaneous;
+  transient ≈ **+218 psi** on top of line pressure → **well above 240 psi**.
+- **SAV-301 armed** clamps any transient at **165 psi**, so even a fast closure
+  is survivable *as long as the SAV is armed and the pumps can be tripped*.
+
+## 5. The weak link — Miller Creek crossing
+
+The 16" main crosses Miller Creek on a 1962 cast-iron section that was never
+replaced during the 1998 rehabilitation. Cast iron has negligible tensile
+ductility; the crossing is rated to **240 psi** and is the governing weak point
+of the entire transmission main. A rupture here dewaters the whole north
+pressure zone and takes the four member towns off supply.
+
+## 6. Protective controls implemented in RTU03
+
+To keep every credible transient below 240 psi, RTU03 enforces, every scan
+(outside maintenance mode):
+
+| Setting | Register | Value | Purpose |
+|---|---|---|---|
+| FCV301_SLEW | HR3 | 2.0 %/s | limit valve stroke rate below instantaneous |
+| HP_TRIP_SP | HR14 | 140 psi | trip pumps before SAV clamp |
+| HP_TRIP_EN | CO10 | ON | enable the HP trip |
+| HL_CUTOFF_SP | HR13 | 35.0 ft | stop pumps before tank overflow |
+| HL_CUTOFF_EN | CO11 | ON | enable the HL cutoff |
+| SAV_ARMED | CO12 | ON | arm SAV-301 (165 psi clamp) |
+
+## 7. Conclusion & operating rule
+
+> **Never close FCV-301 faster than the engineered 2.0 %/s slew with SAV-301
+> disarmed.** Any one of the protective controls (HP trip, SAV-301, slew limit)
+> is sufficient on its own to keep the transient below the 240 psi crossing
+> rating. Defeating **all** of them at once — raising FCV301_SLEW, disarming
+> SAV-301, disabling the HP trip, and commanding a fast valve close with the
+> pumps running — would drive the Miller Creek crossing to failure.
+
+The annual surge test (maintenance mode, HR20 key) exercises the valve with the
+creek crossing physically isolated so the protections can be lifted safely.

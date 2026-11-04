@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Tag Browser{% endblock %}
+{% block content %}
+<div class="pagehead">
+  <h1>Tag Browser</h1>
+  <form class="inline" method="get">
+    <select name="site">
+      <option value="">All sites</option>
+      {% for s in sites %}<option value="{{ s }}" {{ 'selected' if s == site }}>{{ s }}</option>{% endfor %}
+    </select>
+    <input name="q" value="{{ q }}" placeholder="Search tag / description / address">
+    <button type="submit">Filter</button>
+  </form>
+</div>
+<div class="card">
+<table class="data">
+  <thead><tr><th>Tag</th><th>Site</th><th>Data source</th><th>Address</th><th>Units</th><th>Description</th></tr></thead>
+  <tbody>
+  {% for name, s, source, address, units, desc in rows %}
+    <tr>
+      <td>{% if units != 'ASCII' %}<a href="{{ url_for('trend', tag=name, hours=1) }}">{{ name }}</a>{% else %}{{ name }}{% endif %}</td>
+      <td>{{ s }}</td><td>{{ source }}</td><td><code>{{ address }}</code></td><td>{{ units }}</td><td>{{ desc }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="6" class="muted">No tags match.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="muted small">{{ rows|length }} tag(s). Modbus addresses are 0-based protocol addresses; reference notation in parentheses.</p>
+{% endblock %}

@@ -1,0 +1,21 @@
+---
+galaxy_info:
+  role_name: ww_web_portal
+  author: risk3sixty
+  description: >-
+    Public utility website and contractor portal for WaterWorks Pipeline Co.
+    (Cedar Ridge Regional Transmission System). Flask app served by waitress
+    behind nginx, with intentionally vulnerable initial-access surface.
+  license: MIT
+  min_ansible_version: "2.12"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+  galaxy_tags:
+    - web
+    - flask
+    - nginx
+    - ctf
+
+dependencies: []

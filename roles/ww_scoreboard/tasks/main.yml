@@ -1,0 +1,156 @@
+---
+- name: Verify required range variables are present
+  ansible.builtin.assert:
+    that:
+      - ww_flags is defined
+      - ww_flags is mapping
+      - ww_scoreboard_admin_password is defined
+      - (ww_scoreboard_admin_password | string | length) > 0
+    fail_msg: >-
+      ww_scoreboard needs `ww_flags` (dict of flag key -> flag string) and
+      `ww_scoreboard_admin_password` from range.yaml global_role_vars.
+      Define them there; flag values are never stored in this role.
+    quiet: true
+
+- name: Verify every challenge has a flag in ww_flags
+  ansible.builtin.assert:
+    that:
+      - _ww_missing_flags | length == 0
+    fail_msg: "ww_flags is missing keys required by the scoreboard: {{ _ww_missing_flags | join(', ') }}"
+    quiet: true
+  vars:
+    _ww_missing_flags: "{{ ww_scoreboard_challenges | map(attribute='key') | difference(ww_flags.keys() | list) }}"
+
+- name: Install scoreboard packages
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-flask
+      - python3-werkzeug
+      - python3-waitress
+      - sqlite3
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create scoreboard service group
+  ansible.builtin.group:
+    name: "{{ ww_scoreboard_group }}"
+    system: true
+
+- name: Create scoreboard service user
+  ansible.builtin.user:
+    name: "{{ ww_scoreboard_user }}"
+    group: "{{ ww_scoreboard_group }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ ww_scoreboard_data_dir }}"
+    create_home: false
+    comment: "CTF scoreboard service"
+
+- name: Create application directory (root-owned)
+  ansible.builtin.file:
+    path: "{{ ww_scoreboard_app_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create configuration directory
+  ansible.builtin.file:
+    path: "{{ ww_scoreboard_conf_dir }}"
+    state: directory
+    owner: root
+    group: "{{ ww_scoreboard_group }}"
+    mode: "0750"
+
+- name: Create data directory (service-writable)
+  ansible.builtin.file:
+    path: "{{ ww_scoreboard_data_dir }}"
+    state: directory
+    owner: "{{ ww_scoreboard_user }}"
+    group: "{{ ww_scoreboard_group }}"
+    mode: "0750"
+
+- name: Install scoreboard application files
+  ansible.builtin.copy:
+    src: app/
+    dest: "{{ ww_scoreboard_app_dir }}/"
+    owner: root
+    group: root
+    mode: "0644"
+    directory_mode: "0755"
+  notify: Restart ww-scoreboard
+
+- name: Render challenge seed (flag hashes only)
+  ansible.builtin.template:
+    src: challenges.json.j2
+    dest: "{{ ww_scoreboard_conf_dir }}/challenges.json"
+    owner: root
+    group: "{{ ww_scoreboard_group }}"
+    mode: "0640"
+  notify: Restart ww-scoreboard
+
+- name: Render scoreboard environment file
+  ansible.builtin.template:
+    src: scoreboard.env.j2
+    dest: "{{ ww_scoreboard_conf_dir }}/scoreboard.env"
+    owner: root
+    group: "{{ ww_scoreboard_group }}"
+    mode: "0640"
+  no_log: true
+  notify: Restart ww-scoreboard
+
+- name: Install systemd unit
+  ansible.builtin.template:
+    src: ww-scoreboard.service.j2
+    dest: "/etc/systemd/system/{{ ww_scoreboard_service }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart ww-scoreboard
+
+- name: Seed challenges (upsert by key; teams and solves are never touched)
+  ansible.builtin.command:
+    argv:
+      - runuser
+      - -u
+      - "{{ ww_scoreboard_user }}"
+      - --
+      - /usr/bin/python3
+      - "{{ ww_scoreboard_app_dir }}/app.py"
+      - seed
+  environment:
+    WW_SCORE_DATA_DIR: "{{ ww_scoreboard_data_dir }}"
+    WW_SCORE_SEED_FILE: "{{ ww_scoreboard_conf_dir }}/challenges.json"
+    PYTHONDONTWRITEBYTECODE: "1"
+  register: _ww_seed
+  changed_when: (_ww_seed.stdout_lines | last | from_json).changed | bool
+
+- name: Enable and start the scoreboard
+  ansible.builtin.systemd:
+    name: "{{ ww_scoreboard_service }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Apply pending restarts
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for the scoreboard to answer
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ ww_scoreboard_port }}/healthz"
+    status_code: 200
+  register: _ww_health
+  until: _ww_health.status == 200
+  retries: 20
+  delay: 3
+  failed_when: false          # don't abort the whole range deploy on one slow service
+
+- name: Warn if the scoreboard did not answer in time
+  ansible.builtin.debug:
+    msg: >-
+      The scoreboard did not return 200 on /healthz within the timeout. Deploy
+      continues. Check `systemctl status {{ ww_scoreboard_service }}` and
+      `journalctl -u {{ ww_scoreboard_service }}` on {{ inventory_hostname }}.
+  when: _ww_health.status is not defined or _ww_health.status != 200

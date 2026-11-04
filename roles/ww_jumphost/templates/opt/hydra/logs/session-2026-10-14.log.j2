@@ -1,0 +1,19 @@
+Hydra Controls Integration - Remote Support Session Log
+Customer: {{ ww_org_name }} (Cedar Ridge)
+Session: 2026-10-14  08:40-09:30 CT
+Engineer: Hydra NOC (vendor account: hydra_vendor @ ww-jump01)
+Ticket: HYD-5560 / customer IT-1182
+
+08:40  Connected to ww-jump01 ({{ ww_net }}.30.20) for scheduled check.
+08:45  ssh ww-eng01 - engineering workstation reachable, vendor key OK.
+08:52  Backed up PLC projects on ww-eng01 (projbackup). Intake/WTP/booster.
+09:05  Reviewed Hilltop RTU03 surge/SAV-301 settings - protective values intact.
+09:14  Cross-checked HMI shift log entries against historian trends. Consistent.
+09:22  Left operator note re: VNC session timeout on the control-room console.
+09:30  Disconnected. No changes to controller logic or setpoints this session.
+
+Reminder for IT review (IT-1182): everything into SCADA goes through this host;
+engineering WS access is vendor-key only. Field PLCs are not directly routable
+from the OT DMZ - reach them via the HMI or ww-eng01.
+
+-- End of session --

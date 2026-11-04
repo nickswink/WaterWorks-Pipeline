@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% set auto_refresh = True %}
+{% block subtitle %} - {{ title }}{% endblock %}
+{% block body %}
+<h1>{{ title }}
+  <span class="pill s-{{ view.status }}" style="margin-left:10px">{{ view.status }}</span>
+  {% if not view.comm %}<span class="q q-COMM_FAIL" style="margin-left:6px">COMM FAIL</span>{% endif %}
+</h1>
+
+{% if alarms %}
+<h2>Current Alarms</h2>
+<div class="panel">
+  <table>
+    <tr><th>Severity</th><th>Message</th></tr>
+    {% for a in alarms %}
+    <tr><td><span class="pill s-{{ a.sev }}">{{ a.sev }}</span></td>
+        <td {% if a.sev=='critical' %}class="banner code" style="padding:4px 8px"{% endif %}>{{ a.text }}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
+<h2>Live Tags</h2>
+<div class="panel">
+  <table>
+    <tr><th>Tag</th><th>Value</th><th>Units</th><th>Quality</th><th>Description</th></tr>
+    {% for r in view.rows %}
+    <tr>
+      <td>{{ r.tag }}</td>
+      <td class="val">{{ r.value }}</td>
+      <td class="units">{{ r.units }}</td>
+      <td><span class="q q-{{ r.quality }}">{{ r.quality }}</span></td>
+      <td class="units">{{ r.desc }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+<p style="color:#55687a;font-size:11px">Read-only operator view. Setpoints shown for reference; control writes are issued from the engineering workstation.</p>
+{% endblock %}

@@ -1,0 +1,67 @@
+# Hydra Controls — Cedar Ridge Engineering Toolkit
+
+Stdlib-only Python 3 utilities for talking to the Cedar Ridge field
+controllers from the engineering workstation. No third-party packages.
+
+| Tool | Protocol | Use |
+|---|---|---|
+| `pcom_client.py` | Unitronics PCOM/TCP (ASCII, protocol 101), tcp/20256 | V570 chemical feed: MI/MB 0-4095, PLC RUN/STOP |
+| `mbtool.py` | Modbus/TCP, tcp/502 | all three controllers: coils/DI/HR/IR, FC43 device id, FC17 server id |
+| `tagmon.py` | Modbus/TCP, tcp/502 | live tag monitor for a chosen site |
+| `mbclient.py` | — | shared Modbus/TCP client library imported by the tools |
+
+Controllers:
+
+```
+{{ ww_net }}.50.10   ww-plc01  Cedar River Intake PS-1 (Modicon M340)
+{{ ww_net }}.50.20   ww-plc02  WTP Chemical Feed (Unitronics V570, Modbus + PCOM)
+{{ ww_net }}.50.30   ww-rtu03  Hilltop Booster PS-3 (SCADAPack 474)
+```
+
+## pcom_client.py (Unitronics V570)
+
+The Modbus gateway on the V570 only exposes MI/MB **0-999**. The commissioning
+note at **MI 3000-3023** and the controller **RUN/STOP** state are reachable
+**only** over PCOM/TCP. This tool is the only way to touch them.
+
+```
+pcom_client.py {{ ww_net }}.50.20 id                 # model + RUN/STOP
+pcom_client.py {{ ww_net }}.50.20 rw 3000 24 --text  # read commissioning note
+pcom_client.py {{ ww_net }}.50.20 rw 0 13            # PLANT_FLOW .. DOSE_MODE
+pcom_client.py {{ ww_net }}.50.20 sw 1 120           # NAOH_DOSE_SP = 120 ppm
+pcom_client.py {{ ww_net }}.50.20 rb 0 4             # read MB 0..3
+pcom_client.py {{ ww_net }}.50.20 sb 2 0             # clear PH_HIHI_CUTOUT_EN
+pcom_client.py {{ ww_net }}.50.20 stop               # CCS: PLC -> STOP
+pcom_client.py {{ ww_net }}.50.20 run                # CCR: PLC -> RUN
+```
+
+## mbtool.py (Modbus/TCP)
+
+```
+mbtool.py {{ ww_net }}.50.10 devid              # FC43 Read Device Identification
+mbtool.py {{ ww_net }}.50.10 devid --code 4 --obj 6  # single object (UserApplicationName)
+mbtool.py {{ ww_net }}.50.10 srvid              # FC17 Report Server ID
+mbtool.py {{ ww_net }}.50.10 ri 0 12            # intake input registers
+mbtool.py {{ ww_net }}.50.20 rh 900 24 --text   # V570 panel message (Modbus window)
+mbtool.py {{ ww_net }}.50.30 rh 20 3            # rtu03 maint key / mode / timer
+mbtool.py {{ ww_net }}.50.30 wh 2 500           # FCV301_SP = 50.0 %
+```
+
+## tagmon.py
+
+```
+tagmon.py {{ ww_net }}.50.10 intake
+tagmon.py {{ ww_net }}.50.20 chemfeed -i 2
+tagmon.py {{ ww_net }}.50.30 booster -n 5
+```
+
+## projbackup
+
+Before editing a live PLC program, snapshot the project tree:
+
+```
+projbackup        # writes /var/backups/projects.tgz
+```
+
+---
+Maintained by Hydra Controls Integration LLC for {{ ww_org_name }}.

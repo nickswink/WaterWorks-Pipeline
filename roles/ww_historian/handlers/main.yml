@@ -1,0 +1,14 @@
+---
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart aquahist-web
+  ansible.builtin.systemd:
+    name: aquahist-web
+    state: restarted
+
+- name: Restart aquahist-collector
+  ansible.builtin.systemd:
+    name: aquahist-collector
+    state: restarted

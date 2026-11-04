@@ -1,0 +1,20 @@
+id
+groups
+hostname
+cat /etc/motd
+sudo -l
+ls -l /opt/hydra/logs/
+sudo -u hydra_vendor /usr/bin/less /opt/hydra/logs/session-2026-10-14.log
+sudo -u hydra_vendor /usr/bin/less /opt/hydra/logs/session-2026-10-12.log
+curl -sI http://{{ ww_net }}.40.10/
+curl -s http://{{ ww_net }}.40.10/ | head -40
+ssh ww-eng01
+ssh hydra_vendor@{{ ww_net }}.40.20
+ssh -i ~/.ssh/id_ed25519 ww-eng01
+ping -c2 {{ ww_net }}.40.20
+nc -zv {{ ww_net }}.40.20 22
+nc -zv {{ ww_net }}.40.10 5900
+# note: eng ws (ww-eng01) only takes the vendor key, not mine - Hydra manages it
+# HMI VNC is on {{ ww_net }}.40.10:5900, web is :80 - review the shift log there
+clear
+exit

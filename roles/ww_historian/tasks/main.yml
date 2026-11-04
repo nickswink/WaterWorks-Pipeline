@@ -1,0 +1,174 @@
+---
+# AquaHistorian 4.2 process historian on ww-hist01 (OT DMZ, Purdue L3.5)
+
+- name: Check required range variables
+  ansible.builtin.assert:
+    that:
+      - ww_flags is defined
+      - ww_flags.hist_sqli is defined
+      - ww_net is defined
+      - ww_hmi_api_token is defined
+      - ww_org_name is defined
+    fail_msg: "ww_historian needs ww_flags, ww_net, ww_hmi_api_token and ww_org_name (global_role_vars)"
+    quiet: true
+
+- name: Install historian packages
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-flask
+      - python3-waitress
+      - sqlite3
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create aquahist group
+  ansible.builtin.group:
+    name: "{{ ww_hist_user }}"
+    system: true
+
+- name: Create aquahist service account
+  ansible.builtin.user:
+    name: "{{ ww_hist_user }}"
+    group: "{{ ww_hist_user }}"
+    system: true
+    home: "{{ ww_hist_data_dir }}"
+    create_home: false
+    shell: /usr/sbin/nologin
+    comment: AquaHistorian service
+
+- name: Create application directory
+  ansible.builtin.file:
+    path: "{{ ww_hist_app_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create data directory
+  ansible.builtin.file:
+    path: "{{ ww_hist_data_dir }}"
+    state: directory
+    owner: "{{ ww_hist_user }}"
+    group: "{{ ww_hist_user }}"
+    mode: "0750"
+
+- name: Create configuration directory
+  ansible.builtin.file:
+    path: "{{ ww_hist_conf_dir }}"
+    state: directory
+    owner: root
+    group: "{{ ww_hist_user }}"
+    mode: "0750"
+
+- name: Deploy AquaHistorian application
+  ansible.builtin.copy:
+    src: aquahist/
+    dest: "{{ ww_hist_app_dir }}/"
+    owner: root
+    group: root
+    mode: "0644"
+    directory_mode: "0755"
+  notify:
+    - Restart aquahist-web
+    - Restart aquahist-collector
+
+- name: Deploy server configuration
+  ansible.builtin.template:
+    src: aquahist.conf.j2
+    dest: "{{ ww_hist_conf_dir }}/aquahist.conf"
+    owner: root
+    group: "{{ ww_hist_user }}"
+    mode: "0640"
+  notify:
+    - Restart aquahist-web
+    - Restart aquahist-collector
+
+- name: Generate web session secret
+  ansible.builtin.shell:
+    cmd: umask 077 && python3 -c 'import secrets; print(secrets.token_hex(32))' > {{ ww_hist_conf_dir }}/secret_key
+    creates: "{{ ww_hist_conf_dir }}/secret_key"
+  notify: Restart aquahist-web
+
+- name: Set web session secret permissions
+  ansible.builtin.file:
+    path: "{{ ww_hist_conf_dir }}/secret_key"
+    owner: root
+    group: "{{ ww_hist_user }}"
+    mode: "0640"
+
+- name: Deploy historian seed data (register map, accounts, system config)
+  ansible.builtin.template:
+    src: seed.json.j2
+    dest: "{{ ww_hist_conf_dir }}/seed.json"
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Initialise and seed historian database
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python3
+      - "{{ ww_hist_app_dir }}/initdb.py"
+      - --db
+      - "{{ ww_hist_db }}"
+      - --seed
+      - "{{ ww_hist_conf_dir }}/seed.json"
+      - --owner
+      - "{{ ww_hist_user }}"
+  environment:
+    PYTHONDONTWRITEBYTECODE: "1"
+  register: ww_hist_initdb
+  changed_when: "'CHANGED' in ww_hist_initdb.stdout"
+
+- name: Set historian database permissions
+  ansible.builtin.file:
+    path: "{{ ww_hist_db }}"
+    owner: "{{ ww_hist_user }}"
+    group: "{{ ww_hist_user }}"
+    mode: "0640"
+
+- name: Install systemd units
+  ansible.builtin.template:
+    src: "{{ item }}.service.j2"
+    dest: "/etc/systemd/system/{{ item }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - aquahist-web
+    - aquahist-collector
+  notify:
+    - Reload systemd
+    - Restart aquahist-web
+    - Restart aquahist-collector
+
+- name: Reload systemd before starting services
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start AquaHistorian services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: false
+  loop:
+    - aquahist-web
+    - aquahist-collector
+
+- name: Wait for AquaHistorian web UI
+  ansible.builtin.wait_for:
+    port: "{{ ww_hist_port }}"
+    host: 127.0.0.1
+    timeout: 60
+  register: ww_hist_wait
+  failed_when: false          # don't abort the whole range deploy on one slow service
+
+- name: Warn if the historian web UI did not come up in time
+  ansible.builtin.debug:
+    msg: >-
+      aquahist-web did not open {{ ww_hist_port }} within the timeout. Deploy
+      continues. Check `systemctl status aquahist-web aquahist-collector` and
+      `journalctl -u aquahist-web` on {{ inventory_hostname }}.
+  when: ww_hist_wait is failed or (ww_hist_wait.state is defined and ww_hist_wait.state != 'started')

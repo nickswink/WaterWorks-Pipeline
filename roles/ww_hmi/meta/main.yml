@@ -1,0 +1,23 @@
+galaxy_info:
+  role_name: ww_hmi
+  author: risk3sixty
+  description: >-
+    AquaView SCADA HMI for the Cedar Ridge Regional Transmission System. Runs a
+    Flask/waitress operator web application that acts as the SCADA master -
+    polling the three field controllers over Modbus/TCP, exposing a
+    token-authenticated tag API for the historian, and serving dark-theme
+    operator screens (mimic, per-site, alarms, shift log). Also provides a
+    headless VNC "remote operator support" console on :5900.
+  license: MIT
+  min_ansible_version: "2.12"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+  galaxy_tags:
+    - ics
+    - ot
+    - scada
+    - hmi
+    - vnc
+dependencies: []

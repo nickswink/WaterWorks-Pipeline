@@ -1,0 +1,237 @@
+---
+# NOTE: This role is intentionally conservative. It removes ONLY build-time
+# automation artifacts and the default template account. It never touches
+# scenario users, their home directories, planted histories, or seeded data.
+
+- name: Gather the list of present users
+  ansible.builtin.getent:
+    database: passwd
+
+# ---------------------------------------------------------------------------
+#  1. Default-account handling
+#
+#  The management account (ww_sanitize_default_user, e.g. `debian`) is how the
+#  build automation reaches this VM. We DO NOT delete it or change its password
+#  during a normal deploy — that would break re-deploys. We only:
+#    * remove a stray *extra* default account if one exists (never the mgmt one)
+#    * remove any passwordless-sudo drop-in for the mgmt account (an IoC that is
+#      NOT how Ludus authenticates — Ludus uses password sudo — so safe to drop)
+#    * optionally (opt-in) lock down the mgmt account as a final, documented step
+# ---------------------------------------------------------------------------
+- name: Remove a stray extra default account (never the management account)
+  ansible.builtin.user:
+    name: "{{ ww_sanitize_extra_default_user }}"
+    state: absent
+    remove: true
+    force: true
+  when:
+    - ww_sanitize_remove_extra_default_user | bool
+    - ww_sanitize_extra_default_user in getent_passwd
+    - ww_sanitize_extra_default_user != ww_sanitize_default_user
+    - ww_sanitize_extra_default_user != ansible_user | default('')
+  ignore_errors: true
+
+# IMPORTANT: never remove the sudoers drop-in for the management account
+# (ww_sanitize_default_user) or the cloud-init drop-in (90-cloud-init-users) —
+# those grant the `debian` account the sudo that the build automation relies on
+# for every `become`. Removing them strips `debian` from sudoers mid-play and
+# breaks the rest of the deploy. We only clean a drop-in for a *stray* extra
+# account (e.g. localuser), and never for the active connection user.
+- name: Remove a passwordless-sudo drop-in for a stray extra account only
+  ansible.builtin.file:
+    path: "/etc/sudoers.d/{{ ww_sanitize_extra_default_user }}"
+    state: absent
+  when:
+    - ww_sanitize_remove_extra_default_user | bool
+    - ww_sanitize_extra_default_user != ww_sanitize_default_user
+    - ww_sanitize_extra_default_user != ansible_user | default('')
+  ignore_errors: true
+
+# --- OPT-IN final lockdown (see defaults/main.yml for the trade-off) ---------
+- name: Generate a strong random password for the management account (lockdown)
+  ansible.builtin.set_fact:
+    ww_locked_pw: "{{ lookup('password', '/dev/null chars=ascii_letters,digits length=' ~ ww_sanitize_locked_password_length) }}"
+  when: ww_sanitize_lockdown_default_account | bool
+  no_log: true
+
+- name: Set a strong random password on the management account (lockdown)
+  ansible.builtin.user:
+    name: "{{ ww_sanitize_default_user }}"
+    password: "{{ ww_locked_pw | password_hash('sha512') }}"
+  when: ww_sanitize_lockdown_default_account | bool
+  no_log: true
+
+- name: Disable SSH password authentication for the management account (lockdown)
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/99-wwp-lockdown.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Default management account may not log in with a password.
+      Match User {{ ww_sanitize_default_user }}
+          PasswordAuthentication no
+          KbdInteractiveAuthentication no
+  when: ww_sanitize_lockdown_default_account | bool
+  notify: Restart sshd
+
+# ---------------------------------------------------------------------------
+#  2. Strip build-cache / proxy package sources
+# ---------------------------------------------------------------------------
+- name: Find apt source files
+  ansible.builtin.find:
+    paths:
+      - /etc/apt/sources.list.d
+    patterns: "*.list,*.sources"
+    file_type: file
+  register: ww_apt_sources
+  when: ww_sanitize_clean_apt_proxy | bool
+
+- name: Remove apt source files that point at the build cache/proxy
+  ansible.builtin.shell: >-
+    grep -lE "{{ ww_sanitize_proxy_markers | join('|') }}" "{{ item.path }}" >/dev/null 2>&1
+    && rm -f "{{ item.path }}" && echo removed || true
+  register: ww_apt_removed
+  changed_when: "'removed' in ww_apt_removed.stdout"
+  loop: "{{ ww_apt_sources.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path }}"
+  when: ww_sanitize_clean_apt_proxy | bool
+
+- name: Strip proxy markers from the main sources.list
+  ansible.builtin.replace:
+    path: /etc/apt/sources.list
+    regexp: "^.*({{ ww_sanitize_proxy_markers | join('|') }}).*$"
+    replace: ""
+  when: ww_sanitize_clean_apt_proxy | bool
+  ignore_errors: true
+
+- name: Remove apt proxy configuration drop-ins
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/apt/apt.conf.d/00proxy
+    - /etc/apt/apt.conf.d/01proxy
+    - /etc/apt/apt.conf.d/99ludus
+    - /etc/apt/apt.conf.d/proxy.conf
+  when: ww_sanitize_clean_apt_proxy | bool
+
+# ---------------------------------------------------------------------------
+#  3. Remove automation staging dirs and temp files
+# ---------------------------------------------------------------------------
+- name: Remove automation staging directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /ludus
+    - /opt/ludus
+    - /var/tmp/ludus
+    - /root/.ansible
+    - /root/ludus
+  when: ww_sanitize_clean_staging | bool
+
+- name: Find automation temp/staging files
+  ansible.builtin.find:
+    paths:
+      - /tmp
+      - /var/tmp
+    patterns: "ansible-*,ansible_*,.ansible_*"
+    file_type: any
+    hidden: true
+  register: ww_stage_files
+  when: ww_sanitize_clean_staging | bool
+
+- name: Remove automation temp/staging files
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ ww_stage_files.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path }}"
+  when: ww_sanitize_clean_staging | bool
+
+# ---------------------------------------------------------------------------
+#  4. Clear ONLY root + default-user build history (never scenario users)
+# ---------------------------------------------------------------------------
+- name: Clear root and default-account shell history (build commands only)
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /root/.bash_history
+    - /root/.zsh_history
+    - /root/.python_history
+    - /root/.ansible/tmp
+    - "/home/{{ ww_sanitize_default_user }}/.bash_history"
+    - "/home/{{ ww_sanitize_default_user }}/.zsh_history"
+    - "/home/{{ ww_sanitize_extra_default_user }}/.bash_history"
+  when: ww_sanitize_clean_build_history | bool
+  ignore_errors: true
+
+# ---------------------------------------------------------------------------
+#  5. Truncate provisioning logs
+# ---------------------------------------------------------------------------
+- name: Truncate cloud-init / provisioning logs
+  ansible.builtin.shell: |
+    set -e
+    for f in /var/log/cloud-init.log /var/log/cloud-init-output.log \
+             /var/log/auth.log /var/log/syslog; do
+      [ -f "$f" ] && : > "$f" || true
+    done
+  args:
+    executable: /bin/bash
+  changed_when: true
+  when: ww_sanitize_clean_build_logs | bool
+
+- name: Remove cloud-init artifacts and seed data
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /var/lib/cloud/instances
+    - /var/lib/cloud/instance
+  when: ww_sanitize_clean_build_logs | bool
+  ignore_errors: true
+
+# ---------------------------------------------------------------------------
+#  6. Corporate identity (MOTD + cosmetic hardware spoof)
+# ---------------------------------------------------------------------------
+- name: Remove default/dynamic MOTD scripts that reveal the platform
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/update-motd.d/10-uname
+    - /etc/update-motd.d/50-landscape-sysinfo
+    - /etc/update-motd.d/91-release-upgrade
+  when: ww_sanitize_set_motd | bool
+  ignore_errors: true
+
+- name: Install the corporate MOTD / login banner
+  ansible.builtin.template:
+    src: motd.j2
+    dest: /etc/motd
+    owner: root
+    group: root
+    mode: "0644"
+  when: ww_sanitize_set_motd | bool
+
+- name: Install an SSH login banner
+  ansible.builtin.template:
+    src: issue.net.j2
+    dest: /etc/issue.net
+    owner: root
+    group: root
+    mode: "0644"
+  when: ww_sanitize_set_motd | bool
+
+- name: Write a plausible asset/hardware record
+  ansible.builtin.template:
+    src: asset_tag.j2
+    dest: /etc/asset-id
+    owner: root
+    group: root
+    mode: "0644"
+  when: ww_sanitize_spoof_dmi | bool

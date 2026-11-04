@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Careers — {{ org_name }}{% endblock %}
+{% block content %}
+<section class="page-head"><div class="container">
+  <h1>Careers at WaterWorks Pipeline</h1>
+  <p>Help keep safe water flowing to the Cedar Ridge region.</p>
+</div></section>
+
+<section class="container prose">
+  <p>
+    We are a team of operators, engineers, water-quality specialists, and field
+    technicians who take pride in an essential public service. We offer
+    competitive pay, strong benefits, and training toward state operator
+    certifications.
+  </p>
+
+  <h2>Open positions</h2>
+  <div class="jobs">
+    <article class="job">
+      <h3>Water Treatment Operator (Class II)</h3>
+      <p class="muted">Cedar Ridge WTP &middot; Full-time &middot; Shift</p>
+      <p>Operate and monitor treatment processes, chemical feed, and plant
+         controls. State Class II operator license required.</p>
+    </article>
+    <article class="job">
+      <h3>Field Technician &ndash; Pump Stations</h3>
+      <p class="muted">Hilltop Booster PS-3 &middot; Full-time</p>
+      <p>Inspect, maintain, and repair pumps, valves, and instrumentation across
+         the transmission system.</p>
+    </article>
+    <article class="job">
+      <h3>SCADA / Controls Engineer</h3>
+      <p class="muted">Cedar Ridge &middot; Full-time</p>
+      <p>Support PLC, RTU, and HMI systems across treatment and transmission
+         facilities. ICS/OT experience preferred.</p>
+    </article>
+    <article class="job">
+      <h3>Helpdesk Technician</h3>
+      <p class="muted">Corporate IT &middot; Full-time</p>
+      <p>Provide end-user support, account provisioning, and workstation
+         maintenance for corporate staff.</p>
+    </article>
+  </div>
+
+  <h2>How to apply</h2>
+  <p>
+    Send a resume and cover letter to
+    <a href="mailto:careers@{{ org_domain }}">careers@{{ org_domain }}</a>.
+    WaterWorks Pipeline Co. is an Equal Opportunity Employer.
+  </p>
+</div></section>
+{% endblock %}

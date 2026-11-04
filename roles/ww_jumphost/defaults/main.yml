@@ -1,0 +1,59 @@
+---
+# ww_jumphost - WWP OT remote-access jump host (ww-jump01, OT DMZ / Purdue L3.5)
+#
+# Shared values (ww_net, ww_flags, ww_org_name, ww_controlroom_password,
+# ww_vnc_password) come from the range-wide variables and are NOT redefined
+# here. The jump host is the single controlled hop between corporate IT and
+# the SCADA network: IT admins SSH in from ww-it01, and the vendor account
+# (hydra_vendor) is used from here to reach the engineering workstation.
+
+# Hydra Controls Integration remote-support working area.
+ww_jump_hydra_dir: /opt/hydra
+ww_jump_hydra_logs_dir: /opt/hydra/logs
+
+# Realistic jump-host tooling. apt only. No scanners / exploitation tools:
+# this is a bastion, not an attacker box.
+ww_jump_packages:
+  - openssh-server
+  - openssh-client
+  - sudo
+  - less
+  - vim
+  - tmux
+  - curl
+  - netcat-openbsd
+
+# Passwords for accounts that are NOT part of the intended attack path are
+# deliberately long and random (not meant to be cracked). d.whitfield logs in
+# with an SSH key; hydra_vendor is reached via the sudo->less escape, never by
+# password. `salt` is fixed per user so the SHA-512 hash is stable across runs.
+ww_jump_dwhitfield_password: "pX7!dM2q#Vt9rZk4Lc6w"
+ww_jump_hydra_password: "Hq3%nB8x!Ue5mWd2Zs7p"
+ww_jump_operator1_password: "Tz6#aK9v@Rp2tCe4Nw8h"
+ww_jump_operator2_password: "Jd4!wH7s#Qn3bYx9Mk2r"
+
+# The accounts that exist on the jump host.
+#   - d.whitfield : IT manager; the account IT logs in as (key from ww-it01).
+#   - hydra_vendor: vendor remote-support account; holds the key to ww-eng01.
+#   - p.raman / r.castillo: plausible operator/field accounts (local pw).
+ww_jump_users:
+  - name: d.whitfield
+    comment: "Dana Whitfield,IT Manager,x4102"
+    password: "{{ ww_jump_dwhitfield_password }}"
+    salt: "wwjump01dwhitfld"
+    groups: []
+  - name: hydra_vendor
+    comment: "Hydra Controls Integration,Vendor Remote Support"
+    password: "{{ ww_jump_hydra_password }}"
+    salt: "wwjump01hydraven"
+    groups: []
+  - name: p.raman
+    comment: "Priya Raman,Control Room Operator (lead),x4203"
+    password: "{{ ww_jump_operator1_password }}"
+    salt: "wwjump01praman00"
+    groups: []
+  - name: r.castillo
+    comment: "Ray Castillo,Field Technician Pump Stations,x4211"
+    password: "{{ ww_jump_operator2_password }}"
+    salt: "wwjump01rcastill"
+    groups: []

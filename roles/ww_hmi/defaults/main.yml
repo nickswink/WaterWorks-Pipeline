@@ -1,0 +1,35 @@
+---
+# ww_hmi - AquaView SCADA HMI (web + VNC) for ww-hmi01
+#
+# Scenario secrets, flags and ww_net come from global_role_vars in range.yaml:
+#   ww_net, ww_flags, ww_hmi_api_token, ww_controlroom_password,
+#   ww_vnc_password, ww_org_name.  Do NOT duplicate flags here.
+
+# --- AquaView HMI web application ---
+ww_hmi_app_user: aquaview
+ww_hmi_app_dir: /opt/aquaview
+ww_hmi_conf_dir: /etc/aquaview
+ww_hmi_bind: "0.0.0.0"
+ww_hmi_port: 80
+ww_hmi_poll_interval: 2.0          # seconds between controller polls
+
+# Flask session-signing key (protects the operator web session only; it is not
+# one of the scenario secrets in docs/DESIGN.md).
+ww_hmi_flask_secret: "aqv-session-3f9c2a7b1e6d4058a1"
+
+# Optional read-only web account (operator account is `controlroom`).
+ww_hmi_viewer_user: viewer
+ww_hmi_viewer_password: viewer
+
+# SITE label -> field controller the HMI polls over Modbus/TCP 502.
+ww_hmi_poll_sites:
+  INTAKE: "{{ ww_net }}.50.10"
+  WTP: "{{ ww_net }}.50.20"
+  BOOSTER: "{{ ww_net }}.50.30"
+
+# --- VNC "remote operator support" console (:5900, display :0) ---
+# The VNC password file lives in this account's home per docs/DESIGN.md §3.
+ww_hmi_vnc_user: hydra_vendor
+ww_hmi_vnc_port: 5900
+ww_hmi_vnc_display: ":0"
+ww_hmi_vnc_geometry: "1360x768x24"

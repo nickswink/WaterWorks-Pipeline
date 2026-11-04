@@ -1,0 +1,126 @@
+# Cedar River Intake PS-1 — PLC01 Program Description
+
+| | |
+|---|---|
+| **Site** | Cedar River Intake Pump Station PS-1 |
+| **Controller** | Schneider Electric Modicon M340 (BMX P34 2020), firmware v3.40 |
+| **Protocol** | Modbus/TCP, tcp/502, unit 1 |
+| **Network** | {{ ww_net }}.50.10  (ww-plc01, VLAN 50 Field) |
+| **Integrator** | Hydra Controls Integration LLC |
+| **Engineer** | M. Oyelaran, {{ ww_org_name }} |
+| **Project** | CEDAR_INTAKE_PS1 |
+
+## 1. Process narrative
+
+Three vertical turbine raw-water pumps (P-101 / P-102 / P-103, 3.0 MGD each)
+lift Cedar River water from the intake wet well through the 24" raw main to the
+Cedar Ridge WTP. A motorized slide gate (GATE) throttles river inflow to the
+wet well. Lead/lag duty automatically rotates among pumps placed in AUTO.
+
+Pumps run in one of three modes per pump (HR 0/1/2): `0 = OFF`, `1 = HAND`,
+`2 = AUTO`. In AUTO the station starts the lead pump on rising wet-well level
+and the lag pump at a higher level; both stop on falling level. In HAND the
+operator starts/stops the pump directly with its HAND_RUN coil.
+
+## 2. I/O list
+
+### Coils (0xxxx, FC01/05/15)
+
+| Addr | Doc | Tag | Notes |
+|---|---|---|---|
+| 0 | 00001 | P101_HAND_RUN | effective only in HAND |
+| 1 | 00002 | P102_HAND_RUN | effective only in HAND |
+| 2 | 00003 | P103_HAND_RUN | effective only in HAND |
+| 10 | 00011 | LL_PROTECT_EN | wet-well low-low pump protection (default **1**) |
+| 11 | 00012 | ALARM_RESET | momentary |
+
+### Discrete inputs (1xxxx, FC02)
+
+| Addr | Doc | Tag |
+|---|---|---|
+| 0,1,2 | 10001-10003 | P101/102/103_RUNNING |
+| 3,4,5 | 10004-10006 | P101/102/103_FAULT (damaged / tripped) |
+| 8 | 10009 | WW_LEVEL_HH |
+| 9 | 10010 | WW_LEVEL_LL |
+
+### Input registers (3xxxx, FC04) — read-only measured values
+
+| Addr | Doc | Tag | Scale |
+|---|---|---|---|
+| 0 | 30001 | WW_LEVEL | ft ×100 (~1200) |
+| 1 | 30002 | RIVER_INFLOW | MGD ×100 (~500) |
+| 2 | 30003 | PUMP_FLOW | MGD ×100 |
+| 3,4,5 | 30004-30006 | P10x_AMPS | A ×10 (~860 running) |
+| 6 | 30007 | HEADER_PRESS | psi ×10 (~550) |
+| 7 | 30008 | RAW_TURBIDITY | NTU ×100 |
+| 8,9,10 | 30009-30011 | P10x_VIBRATION | mm/s ×10 (~25; >110 cavitating) |
+| 11 | 30012 | GATE_POS | % ×10 (1000 = 100%) |
+
+### Holding registers (4xxxx, FC03/06/16) — setpoints
+
+| Addr | Doc | Tag | Units | Default |
+|---|---|---|---|---|
+| 0,1,2 | 40001-40003 | P10x_MODE | 0 OFF / 1 HAND / 2 AUTO | 2, 2, 0 |
+| 10 | 40011 | LEAD_START | ft ×100 | 1200 |
+| 11 | 40012 | LAG_START | ft ×100 | 1400 |
+| 12 | 40013 | LEAD_STOP | ft ×100 | 600 |
+| 13 | 40014 | LAG_STOP | ft ×100 | 1000 |
+| 14 | 40015 | LL_TRIP | ft ×100 | 300 |
+| 15 | 40016 | GATE_SP | % ×10 | 1000 |
+| 100 | 40101 | HEARTBEAT | counter | — |
+| 9000-9023 | 49001-49024 | EVENT_TEXT | ASCII alarm banner | 0 |
+
+## 3. Pump control narrative (lead/lag)
+
+```
+LEAD pump : START when WW_LEVEL >= LEAD_START (40011, 12.00 ft)
+            STOP  when WW_LEVEL <= LEAD_STOP  (40013,  6.00 ft)
+LAG  pump : START when WW_LEVEL >= LAG_START  (40012, 14.00 ft)
+            STOP  when WW_LEVEL <= LAG_STOP   (40014, 10.00 ft)
+```
+
+Duty rotation is by pump number among the pumps currently in AUTO (lowest
+numbered AUTO pump is lead). P-103 ships in OFF as the installed spare.
+
+## 4. Interlocks and protection
+
+- **LL_PROTECT_EN (coil 10, default 1).** Wet-well low-low protection. While
+  enabled, any running pump trips when `WW_LEVEL <= LL_TRIP` (40015, 3.00 ft)
+  and is held off until the level recovers +1.0 ft. This prevents a pump from
+  running the well down below the bowl submergence (2.0 ft) and cavitating.
+- **Submergence.** Below 2.0 ft of well level the pumps lose suction; sustained
+  dry running destroys the bowl assembly (seen as runaway amps/vibration).
+- **AUTO vs HAND.** In AUTO a pump cannot run the well dry because LEAD_STOP is
+  above the LL trip. Dry-running a pump therefore requires HAND mode **and**
+  LL_PROTECT_EN cleared — an off-normal condition the HMI flags.
+- **WW_LEVEL_HH (DI 8)** drives the high-high overflow alarm.
+
+## 5. Identity (FC43 / 0x0E Read Device Identification)
+
+| Obj | Field | Value |
+|---|---|---|
+| 0x00 | VendorName | Schneider Electric |
+| 0x01 | ProductCode | BMX P34 2020 |
+| 0x02 | Revision | v3.40 |
+| 0x03 | VendorUrl | www.se.com |
+| 0x04 | ProductName | Modicon M340 |
+| 0x05 | ModelName | BMX P34 2020 |
+| 0x06 | UserApplicationName | CEDAR_INTAKE_PS1 |
+
+FC17 Report Server ID returns `CEDAR RIVER INTAKE PS-1 M340`.
+
+Read it with the engineering toolkit:
+
+```
+mbtool.py {{ ww_net }}.50.10 devid
+mbtool.py {{ ww_net }}.50.10 srvid
+```
+
+## 6. Commissioning notes
+
+- Tag/address export: see `addressing/CEDAR_INTAKE_PS1_addressing.csv`.
+- Do not expose this M340 outside VLAN 50. Only the HMI ({{ ww_net }}.40.10)
+  and this engineering workstation ({{ ww_net }}.40.20) are permitted to poll
+  it on tcp/502.
+- LL_PROTECT_EN is a life-of-equipment interlock. Never leave it cleared after
+  pump maintenance — restore to 1 before returning the station to AUTO.

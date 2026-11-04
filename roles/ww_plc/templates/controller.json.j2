@@ -1,0 +1,21 @@
+{
+  "site": "{{ ww_plc_site }}",
+  "bind": "{{ ww_plc_bind }}",
+  "modbus_port": {{ ww_plc_modbus_port }},
+{% if ww_plc_site == 'chemfeed' %}
+  "pcom_port": {{ ww_plc_pcom_port }},
+{% endif %}
+  "scan_ms": {{ ww_plc_scan_ms }},
+  "unit_ids": {{ ww_plc_unit_ids | to_json }},
+  "event_hold_s": {{ ww_plc_event_hold_s }},
+  "maint_key": {{ ww_rtu03_maint_key }},
+  "flags": {
+    "plc01_devid": "{{ ww_flags.plc01_devid }}",
+    "plc02_pcom": "{{ ww_flags.plc02_pcom }}",
+    "impact_drypump": "{{ ww_flags.impact_drypump }}",
+    "impact_naoh": "{{ ww_flags.impact_naoh }}",
+    "impact_deface": "{{ ww_flags.impact_deface }}",
+    "impact_overflow": "{{ ww_flags.impact_overflow }}",
+    "impact_mainbreak": "{{ ww_flags.impact_mainbreak }}"
+  }
+}

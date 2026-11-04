@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Portal v2 Staging — {{ ww_org_name }}</title>
+  <style>
+    body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#0b3d5c;color:#e4f1f9;margin:0;padding:48px 20px}
+    .box{max-width:620px;margin:0 auto;background:#0b5f8a;border:1px solid #1f87bf;border-radius:10px;padding:28px 32px}
+    h1{margin-top:0;color:#fff} code{background:#073148;padding:2px 6px;border-radius:4px}
+    .warn{background:#8a5a00;color:#fff6e4;padding:10px 14px;border-radius:6px;font-size:.9rem}
+    ul{line-height:1.8}
+  </style>
+</head>
+<!--
+  Portal v2 staging build — DO NOT INDEX, internal use only.
+  Build token: {{ ww_flags.web_recon }}
+  TODO: report downloader accepts nested paths now; sanitize before go-live (JIRA WEB-88)
+-->
+<body>
+  <div class="box">
+    <div class="warn">Staging environment — not for public use. Do not index.</div>
+    <h1>Contractor Portal v2 (Staging)</h1>
+    <p>This is the pre-production build of the WaterWorks contractor portal. It is
+       being prepared for cutover and is not connected to live customer systems.</p>
+    <p>Work in progress on this build:</p>
+    <ul>
+      <li>New notice publisher workflow</li>
+      <li>Rebuilt CCR report downloader (<code>/reports/download</code>)</li>
+      <li>Contractor self-service account pages</li>
+    </ul>
+    <p>For access questions, contact WaterWorks IT at (555) 0142.</p>
+  </div>
+</body>
+</html>

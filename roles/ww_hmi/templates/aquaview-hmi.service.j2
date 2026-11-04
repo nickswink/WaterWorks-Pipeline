@@ -1,0 +1,27 @@
+[Unit]
+Description=AquaView SCADA HMI web application ({{ ww_org_name }})
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ ww_hmi_app_user }}
+Group={{ ww_hmi_app_user }}
+Environment=AQUAVIEW_CONFIG={{ ww_hmi_conf_dir }}/aquaview.json
+Environment=AQUAVIEW_BIND={{ ww_hmi_bind }}
+Environment=AQUAVIEW_PORT={{ ww_hmi_port }}
+WorkingDirectory={{ ww_hmi_app_dir }}
+ExecStart=/usr/bin/python3 {{ ww_hmi_app_dir }}/app.py
+Restart=always
+RestartSec=3
+# Port 80 is privileged; grant only the bind capability.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadOnlyPaths={{ ww_hmi_conf_dir }}
+
+[Install]
+WantedBy=multi-user.target

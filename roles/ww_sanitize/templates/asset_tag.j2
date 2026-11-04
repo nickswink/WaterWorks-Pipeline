@@ -1,0 +1,6 @@
+manufacturer={{ ww_sanitize_hw_manufacturer }}
+product_name={{ ww_sanitize_hw_product }}
+hostname={{ inventory_hostname }}
+role={{ ww_motd_role | default('managed system') }}
+owner={{ ww_org_name | default('WaterWorks Pipeline Co.') }}
+support_contact=ithelpdesk@{{ ww_domain | default('waterworkspipeline.com') }}

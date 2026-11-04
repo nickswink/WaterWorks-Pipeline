@@ -1,0 +1,277 @@
+---
+# ===========================================================================
+#  WaterWorks Pipeline — public website and contractor portal (ww-web01)
+# ===========================================================================
+
+- name: Assert required scenario variables are defined
+  ansible.builtin.assert:
+    that:
+      - ww_flags is defined
+      - ww_flags.web_recon is defined
+      - ww_flags.web_lfi is defined
+      - ww_flags.web_rce is defined
+      - ww_flags.web_root is defined
+      - ww_portal_secret_key is defined
+      - ww_ccrsync_password is defined
+      - ww_net is defined
+    fail_msg: "ww_web_portal requires ww_flags, ww_portal_secret_key, ww_ccrsync_password and ww_net (from global_role_vars)."
+    quiet: true
+
+# --------------------------------------------------------------------------- #
+#  Packages
+# --------------------------------------------------------------------------- #
+- name: Install web portal packages
+  ansible.builtin.apt:
+    name: "{{ wwp_apt_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# --------------------------------------------------------------------------- #
+#  Service account
+# --------------------------------------------------------------------------- #
+- name: Create web service account
+  ansible.builtin.user:
+    name: "{{ wwp_web_user }}"
+    home: "{{ wwp_web_home }}"
+    shell: /bin/bash
+    create_home: true
+    state: present
+
+# --------------------------------------------------------------------------- #
+#  Application directory layout (root-owned code, readable by the service user)
+# --------------------------------------------------------------------------- #
+- name: Create application directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: "{{ wwp_web_user }}"
+    mode: "0750"
+  loop:
+    - "{{ wwp_app_dir }}"
+    - "{{ wwp_app_dir }}/templates"
+    - "{{ wwp_app_dir }}/static"
+    - "{{ wwp_app_dir }}/content"
+    - "{{ wwp_app_dir }}/reports"
+
+- name: Create app data directory (writable by the service account)
+  ansible.builtin.file:
+    path: "{{ wwp_app_dir }}/data"
+    state: directory
+    owner: "{{ wwp_web_user }}"
+    group: "{{ wwp_web_user }}"
+    mode: "0750"
+
+- name: Deploy Flask application
+  ansible.builtin.copy:
+    src: app.py
+    dest: "{{ wwp_app_dir }}/app.py"
+    owner: root
+    group: "{{ wwp_web_user }}"
+    mode: "0640"
+  notify: Restart wwp-portal
+
+- name: Deploy notice seeder
+  ansible.builtin.copy:
+    src: seed_notices.py
+    dest: "{{ wwp_app_dir }}/seed_notices.py"
+    owner: root
+    group: "{{ wwp_web_user }}"
+    mode: "0640"
+
+- name: Deploy website templates
+  ansible.builtin.copy:
+    src: templates/
+    dest: "{{ wwp_app_dir }}/templates/"
+    owner: root
+    group: "{{ wwp_web_user }}"
+    mode: "0640"
+  notify: Restart wwp-portal
+
+- name: Deploy static assets
+  ansible.builtin.copy:
+    src: static/
+    dest: "{{ wwp_app_dir }}/static/"
+    owner: root
+    group: "{{ wwp_web_user }}"
+    mode: "0644"
+
+- name: Deploy Consumer Confidence Reports
+  ansible.builtin.copy:
+    src: reports/
+    dest: "{{ wwp_app_dir }}/reports/"
+    owner: root
+    group: "{{ wwp_web_user }}"
+    mode: "0644"
+
+# --------------------------------------------------------------------------- #
+#  Config: .env (readable by the service account; LFI target)
+# --------------------------------------------------------------------------- #
+- name: Deploy application .env
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ wwp_app_dir }}/.env"
+    owner: root
+    group: "{{ wwp_web_user }}"
+    mode: "0640"
+  notify: Restart wwp-portal
+
+# --------------------------------------------------------------------------- #
+#  Staging page (recon flag) — served verbatim by the app
+# --------------------------------------------------------------------------- #
+- name: Deploy staging page
+  ansible.builtin.template:
+    src: staging.html.j2
+    dest: "{{ wwp_app_dir }}/content/staging.html"
+    owner: root
+    group: "{{ wwp_web_user }}"
+    mode: "0640"
+  notify: Restart wwp-portal
+
+# --------------------------------------------------------------------------- #
+#  Notices database (seeded once; writable by the app for publishing)
+# --------------------------------------------------------------------------- #
+- name: Initialize and seed the notices database
+  ansible.builtin.command:
+    cmd: "python3 {{ wwp_app_dir }}/seed_notices.py {{ wwp_app_dir }}/data/notices.db"
+  register: wwp_seed
+  changed_when: "'seeded' in wwp_seed.stdout"
+
+- name: Ensure notices database is writable by the app
+  ansible.builtin.file:
+    path: "{{ wwp_app_dir }}/data/notices.db"
+    owner: "{{ wwp_web_user }}"
+    group: "{{ wwp_web_user }}"
+    mode: "0640"
+
+# --------------------------------------------------------------------------- #
+#  Flags
+# --------------------------------------------------------------------------- #
+- name: Write wwp-web flag (SSTI/RCE)
+  ansible.builtin.copy:
+    content: "{{ ww_flags.web_rce }}\n"
+    dest: "{{ wwp_web_home }}/flag.txt"
+    owner: "{{ wwp_web_user }}"
+    group: "{{ wwp_web_user }}"
+    mode: "0600"
+
+- name: Write root flag (privilege escalation)
+  ansible.builtin.copy:
+    content: "{{ ww_flags.web_root }}\n"
+    dest: /root/flag.txt
+    owner: root
+    group: root
+    mode: "0600"
+
+# --------------------------------------------------------------------------- #
+#  Privilege escalation: sudo rsync (validated)
+# --------------------------------------------------------------------------- #
+- name: Install sudoers rule for wwp-web rsync
+  ansible.builtin.template:
+    src: sudoers-wwp-web.j2
+    dest: /etc/sudoers.d/wwp-web
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "visudo -cf %s"
+
+# --------------------------------------------------------------------------- #
+#  Lateral-movement loot: CIFS creds, fstab entry, sync script + cron
+# --------------------------------------------------------------------------- #
+- name: Deploy CIFS credentials for CCR sync
+  ansible.builtin.template:
+    src: smbcredentials-ccr.j2
+    dest: /root/.smbcredentials-ccr
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Ensure CCR mount point exists
+  ansible.builtin.file:
+    path: "{{ wwp_ccr_mount }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Add noauto fstab entry for the CCR share
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: "^//{{ ww_net | regex_escape }}\\.20\\.10/Public/CCR\\s"
+    line: "{{ wwp_ccr_share }} {{ wwp_ccr_mount }} cifs credentials=/root/.smbcredentials-ccr,ro,noauto,vers=3.0 0 0"
+    state: present
+
+- name: Create root scripts directory
+  ansible.builtin.file:
+    path: /root/scripts
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Deploy CCR sync script
+  ansible.builtin.copy:
+    src: ccr_sync.sh
+    dest: /root/scripts/ccr_sync.sh
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Install nightly CCR sync cron job
+  ansible.builtin.template:
+    src: cron-ccr-sync.j2
+    dest: /etc/cron.d/ccr-sync
+    owner: root
+    group: root
+    mode: "0644"
+
+# --------------------------------------------------------------------------- #
+#  systemd service (waitress)
+# --------------------------------------------------------------------------- #
+- name: Install wwp-portal systemd unit
+  ansible.builtin.template:
+    src: wwp-portal.service.j2
+    dest: /etc/systemd/system/wwp-portal.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart wwp-portal
+
+- name: Enable and start wwp-portal
+  ansible.builtin.systemd:
+    name: wwp-portal.service
+    enabled: true
+    state: started
+    daemon_reload: true
+
+# --------------------------------------------------------------------------- #
+#  nginx reverse proxy (:80)
+# --------------------------------------------------------------------------- #
+- name: Remove default nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Reload nginx
+
+- name: Deploy nginx site config
+  ansible.builtin.template:
+    src: nginx-wwp.conf.j2
+    dest: /etc/nginx/sites-available/wwp.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Enable nginx site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/wwp.conf
+    dest: /etc/nginx/sites-enabled/wwp.conf
+    state: link
+  notify: Reload nginx
+
+- name: Enable and start nginx
+  ansible.builtin.systemd:
+    name: nginx
+    enabled: true
+    state: started

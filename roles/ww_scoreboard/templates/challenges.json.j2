@@ -1,0 +1,19 @@
+{#- Seed file for the scoreboard. Contains ONLY sha256 hashes of flags.
+    intel_* answers are upper-cased before hashing (case-insensitive). -#}
+{%- set out = [] -%}
+{%- for c in ww_scoreboard_challenges -%}
+{%-   set raw = ww_flags[c.key] | string | trim -%}
+{%-   set digest = ((raw | upper) | hash('sha256')) if c.key.startswith('intel_') else (raw | hash('sha256')) -%}
+{%-   set _ = out.append({
+        'key': c.key,
+        'title': c.title,
+        'category': c.category,
+        'points': c.points | int,
+        'host': c.host | default(''),
+        'description': c.description | trim,
+        'hints': c.hints | default([]),
+        'sort_order': loop.index,
+        'flag_sha256': digest
+      }) -%}
+{%- endfor -%}
+{{ {'version': 1, 'challenges': out} | to_nice_json }}

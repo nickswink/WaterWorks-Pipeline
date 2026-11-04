@@ -1,0 +1,11 @@
+id
+cd /opt/hydra/logs
+ls -l
+vim session-2026-10-14.log
+ssh ww-eng01
+ssh -i ~/.ssh/id_ed25519 hydra_vendor@{{ ww_net }}.40.20
+curl -sI http://{{ ww_net }}.40.10/
+# HMI shift log review for the control room - creds in ~/notes/site_contacts.txt
+cat ~/notes/site_contacts.txt
+tmux new -s hydra
+exit

@@ -1,0 +1,217 @@
+---
+- name: Assert required range-wide variables are defined
+  ansible.builtin.assert:
+    that:
+      - ww_flags is defined
+      - ww_flags.it_spray is defined
+      - ww_flags.it_root is defined
+      - ww_net is defined
+      - ww_newhire_password is defined
+      - ww_org_name is defined
+      - ww_domain is defined
+    fail_msg: "ww_itadmin requires the WaterWorks global_role_vars (ww_flags, ww_net, ww_newhire_password, ...)."
+    quiet: true
+
+- name: Install IT admin tooling
+  ansible.builtin.apt:
+    name: "{{ ww_it_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# ---------------------------------------------------------------------------
+#  Groups and accounts
+# ---------------------------------------------------------------------------
+- name: Create IT groups
+  ansible.builtin.group:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ ww_it_groups }}"
+
+- name: Create IT user accounts
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    comment: "{{ item.comment }}"
+    shell: /bin/bash
+    create_home: true
+    groups: "{{ item.groups }}"
+    append: false
+    password: "{{ item.password | password_hash('sha512', item.salt) }}"
+    update_password: always
+    state: present
+  loop: "{{ ww_it_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+
+- name: Set home directory permissions
+  ansible.builtin.file:
+    path: "/home/{{ item.name }}"
+    state: directory
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: "0750"
+  loop: "{{ ww_it_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+# ---------------------------------------------------------------------------
+#  SSH: password logins allowed on the corporate admin server
+# ---------------------------------------------------------------------------
+- name: Allow SSH password authentication (sorted first so it wins)
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/00-wwp-auth.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # WWP IT - staff log in with their directory password (MFA on VPN).
+      # IT-1182: forced password change at first login not yet enabled here.
+      PasswordAuthentication yes
+      PubkeyAuthentication yes
+  notify: Restart ssh
+
+- name: Validate sshd configuration
+  ansible.builtin.command: sshd -t
+  changed_when: false
+
+- name: Ensure SSH and cron are enabled and running
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop:
+    - ssh
+    - cron
+
+- name: Add internal host names
+  ansible.builtin.blockinfile:
+    path: /etc/hosts
+    marker: "# {mark} WWP internal hosts"
+    block: |
+      {{ ww_net }}.10.10   ww-web01.wwp.local   ww-web01
+      {{ ww_net }}.20.10   ww-fs01.wwp.local    ww-fs01
+      {{ ww_net }}.30.10   ww-hist01.wwp.local  ww-hist01
+      {{ ww_net }}.30.20   ww-jump01.wwp.local  ww-jump01
+
+# ---------------------------------------------------------------------------
+#  j.alvarez (helpdesk, still on the new-hire password)
+# ---------------------------------------------------------------------------
+- name: Create j.alvarez working directories
+  ansible.builtin.file:
+    path: "/home/j.alvarez/{{ item }}"
+    state: directory
+    owner: j.alvarez
+    group: j.alvarez
+    mode: "0750"
+  loop:
+    - notes
+    - tickets
+
+- name: Plant j.alvarez home content
+  ansible.builtin.template:
+    src: "home/j.alvarez/{{ item.src }}.j2"
+    dest: "/home/j.alvarez/{{ item.src }}"
+    owner: j.alvarez
+    group: j.alvarez
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: flag.txt, mode: "0600" }
+    - { src: .bash_history, mode: "0600" }
+    - { src: notes/helpdesk_notes.txt, mode: "0640" }
+    - { src: tickets/helpdesk_ticket_export_2026-10-15.csv, mode: "0640" }
+  loop_control:
+    label: "{{ item.src }}"
+
+# ---------------------------------------------------------------------------
+#  d.whitfield (IT manager, holds the SSH key for the OT jump host)
+# ---------------------------------------------------------------------------
+- name: Create d.whitfield directories
+  ansible.builtin.file:
+    path: "/home/d.whitfield/{{ item.path }}"
+    state: directory
+    owner: d.whitfield
+    group: d.whitfield
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: .ssh, mode: "0700" }
+    - { path: Documents, mode: "0750" }
+
+- name: Install d.whitfield SSH key pair
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "/home/d.whitfield/.ssh/{{ item.dest }}"
+    owner: d.whitfield
+    group: d.whitfield
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: dwhitfield_id_ed25519, dest: id_ed25519, mode: "0600" }
+    - { src: dwhitfield_id_ed25519.pub, dest: id_ed25519.pub, mode: "0644" }
+  loop_control:
+    label: "{{ item.dest }}"
+
+- name: Plant d.whitfield home content
+  ansible.builtin.template:
+    src: "home/d.whitfield/{{ item.src }}.j2"
+    dest: "/home/d.whitfield/{{ item.src }}"
+    owner: d.whitfield
+    group: d.whitfield
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: .ssh/config, mode: "0600" }
+    - { src: .bash_history, mode: "0600" }
+    - { src: Documents/OT_Access_Notes.txt, mode: "0640" }
+  loop_control:
+    label: "{{ item.src }}"
+
+# ---------------------------------------------------------------------------
+#  Privilege escalation: group-writable script run by root from cron
+# ---------------------------------------------------------------------------
+- name: Create IT scripts directory (helpdesk-maintained)
+  ansible.builtin.file:
+    path: "{{ ww_it_scripts_dir }}"
+    state: directory
+    owner: root
+    group: helpdesk
+    mode: "0775"
+
+- name: Install nightly config backup script
+  ansible.builtin.copy:
+    src: nightly_config_backup.sh
+    dest: "{{ ww_it_scripts_dir }}/nightly_config_backup.sh"
+    owner: root
+    group: helpdesk
+    mode: "0775"
+
+- name: Create backup destination
+  ansible.builtin.file:
+    path: "{{ ww_it_backup_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Create backup log
+  ansible.builtin.copy:
+    dest: "{{ ww_it_backup_log }}"
+    content: ""
+    owner: root
+    group: adm
+    mode: "0640"
+    force: false
+
+- name: Schedule config backup (root cron)
+  ansible.builtin.template:
+    src: it-config-backup.cron.j2
+    dest: /etc/cron.d/it-config-backup
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Plant root flag
+  ansible.builtin.copy:
+    dest: /root/flag.txt
+    content: "{{ ww_flags.it_root }}\n"
+    owner: root
+    group: root
+    mode: "0600"

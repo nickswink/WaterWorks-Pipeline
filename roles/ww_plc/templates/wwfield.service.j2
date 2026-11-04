@@ -1,0 +1,25 @@
+[Unit]
+Description=Cedar Ridge field controller runtime ({{ ww_plc_site_names[ww_plc_site] }})
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ ww_plc_user }}
+Group={{ ww_plc_user }}
+ExecStart=/usr/bin/python3 /opt/wwfield/wwplc.py -c /etc/wwfield/controller.json
+Restart=always
+RestartSec=3
+# Modbus (502) and PCOM (20256) are privileged ports; grant only the bind cap.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/log/wwfield
+StandardOutput=append:/var/log/wwfield/controller.log
+StandardError=append:/var/log/wwfield/controller.log
+
+[Install]
+WantedBy=multi-user.target

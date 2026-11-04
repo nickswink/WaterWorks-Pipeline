@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Contact Us — {{ org_name }}{% endblock %}
+{% block content %}
+<section class="page-head"><div class="container">
+  <h1>Contact Us</h1>
+  <p>We're here to help with service, billing, and water quality.</p>
+</div></section>
+
+<section class="container cols-2">
+  <div class="prose">
+    <h2>Customer Service</h2>
+    <p>
+      <strong>Phone:</strong> (555) 0142<br>
+      <strong>Email:</strong> service@{{ org_domain }}<br>
+      <strong>Hours:</strong> Monday&ndash;Friday, 8:00 AM &ndash; 5:00 PM
+    </p>
+
+    <h2 class="emergency-head">24-Hour Emergency Line</h2>
+    <p>
+      For water main breaks, no water, or loss of pressure, call
+      <strong>(555) 0199</strong> at any time, day or night.
+    </p>
+
+    <h2>Mailing Address</h2>
+    <p>
+      WaterWorks Pipeline Co.<br>
+      410 Riverside Dr<br>
+      Cedar Ridge
+    </p>
+  </div>
+
+  <div>
+    <form class="contact-form" method="post" action="{{ url_for('contact') }}">
+      <h2>Send us a message</h2>
+      <label>Name<input type="text" name="name" autocomplete="name"></label>
+      <label>Email<input type="email" name="email" autocomplete="email"></label>
+      <label>Service Address<input type="text" name="address"></label>
+      <label>How can we help?
+        <textarea name="message" rows="5"></textarea>
+      </label>
+      <button class="btn" type="submit">Submit</button>
+      <p class="muted">For emergencies, please call (555) 0199 instead of using
+         this form.</p>
+    </form>
+  </div>
+</section>
+{% endblock %}

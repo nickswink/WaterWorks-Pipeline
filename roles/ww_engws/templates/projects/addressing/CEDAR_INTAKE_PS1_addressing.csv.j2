@@ -1,0 +1,37 @@
+site,controller,table,proto_addr,doc_addr,fc,tag,units,default,notes
+intake,M340,coil,0,00001,01/05/15,P101_HAND_RUN,bool,0,effective in HAND only
+intake,M340,coil,1,00002,01/05/15,P102_HAND_RUN,bool,0,effective in HAND only
+intake,M340,coil,2,00003,01/05/15,P103_HAND_RUN,bool,0,effective in HAND only
+intake,M340,coil,10,00011,01/05/15,LL_PROTECT_EN,bool,1,wet-well low-low protection
+intake,M340,coil,11,00012,01/05/15,ALARM_RESET,bool,0,momentary
+intake,M340,di,0,10001,02,P101_RUNNING,bool,,
+intake,M340,di,1,10002,02,P102_RUNNING,bool,,
+intake,M340,di,2,10003,02,P103_RUNNING,bool,,
+intake,M340,di,3,10004,02,P101_FAULT,bool,,damaged/tripped
+intake,M340,di,4,10005,02,P102_FAULT,bool,,damaged/tripped
+intake,M340,di,5,10006,02,P103_FAULT,bool,,damaged/tripped
+intake,M340,di,8,10009,02,WW_LEVEL_HH,bool,,
+intake,M340,di,9,10010,02,WW_LEVEL_LL,bool,,
+intake,M340,ir,0,30001,04,WW_LEVEL,ft x100,1200,
+intake,M340,ir,1,30002,04,RIVER_INFLOW,MGD x100,500,
+intake,M340,ir,2,30003,04,PUMP_FLOW,MGD x100,,
+intake,M340,ir,3,30004,04,P101_AMPS,A x10,860,running
+intake,M340,ir,4,30005,04,P102_AMPS,A x10,860,running
+intake,M340,ir,5,30006,04,P103_AMPS,A x10,860,running
+intake,M340,ir,6,30007,04,HEADER_PRESS,psi x10,550,
+intake,M340,ir,7,30008,04,RAW_TURBIDITY,NTU x100,,
+intake,M340,ir,8,30009,04,P101_VIBRATION,mm/s x10,25,>110 cavitating
+intake,M340,ir,9,30010,04,P102_VIBRATION,mm/s x10,25,>110 cavitating
+intake,M340,ir,10,30011,04,P103_VIBRATION,mm/s x10,25,>110 cavitating
+intake,M340,ir,11,30012,04,GATE_POS,% x10,1000,
+intake,M340,hr,0,40001,03/06/16,P101_MODE,enum,2,0 OFF/1 HAND/2 AUTO
+intake,M340,hr,1,40002,03/06/16,P102_MODE,enum,2,0 OFF/1 HAND/2 AUTO
+intake,M340,hr,2,40003,03/06/16,P103_MODE,enum,0,0 OFF/1 HAND/2 AUTO
+intake,M340,hr,10,40011,03/06/16,LEAD_START,ft x100,1200,
+intake,M340,hr,11,40012,03/06/16,LAG_START,ft x100,1400,
+intake,M340,hr,12,40013,03/06/16,LEAD_STOP,ft x100,600,
+intake,M340,hr,13,40014,03/06/16,LAG_STOP,ft x100,1000,
+intake,M340,hr,14,40015,03/06/16,LL_TRIP,ft x100,300,
+intake,M340,hr,15,40016,03/06/16,GATE_SP,% x10,1000,
+intake,M340,hr,100,40101,03,HEARTBEAT,counter,,
+intake,M340,hr,9000,49001,03/16,EVENT_TEXT,ascii,0,alarm banner (24 regs)

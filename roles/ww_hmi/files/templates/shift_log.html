@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block subtitle %} - Shift Log{% endblock %}
+{% block body %}
+<h1>Control Room Shift Log</h1>
+
+<div class="panel" style="border-left:4px solid #e8a33d">
+  <div style="color:#e8a33d;font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:12px">
+    &#128204; Pinned Operations Note
+  </div>
+  <p style="margin:12px 0 0">
+    <strong>Shared control-room access is live.</strong> Per the Hilltop SOP, operators and vendor
+    support share the <code>controlroom</code> login for the AquaView HMI and the :5900 remote console.
+    Rotate credentials at the next maintenance window.
+  </p>
+  <p style="margin:14px 0 0">Shift verification token (record in the log book on hand-off):</p>
+  <div class="banner code" style="background:#0b1016;border:1px dashed #19b2c9;color:#8ef0ff">
+    {{ flag }}
+  </div>
+</div>
+
+<h2>Recent Entries</h2>
+<div class="panel">
+  <table>
+    <tr><th>Time</th><th>Operator</th><th>Entry</th></tr>
+    <tr><td>06:00</td><td>p.raman</td><td>Day shift start. All three stations in AUTO. Summit Tank trending normal.</td></tr>
+    <tr><td>09:42</td><td>p.raman</td><td>Hydra Controls remote support session (VNC) for RTU03 firmware check - no changes.</td></tr>
+    <tr><td>13:15</td><td>r.castillo</td><td>Field check at PS-3 complete. FCV-301 stroking normally.</td></tr>
+    <tr><td>18:00</td><td>controlroom</td><td>Night shift hand-off. No outstanding alarms.</td></tr>
+  </table>
+</div>
+{% endblock %}

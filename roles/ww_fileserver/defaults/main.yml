@@ -1,0 +1,88 @@
+---
+# ww_fileserver - WWP corporate Samba file server (ww-fs01)
+#
+# Shared values (ww_net, ww_flags, ww_ccrsync_password, ww_org_name,
+# ww_domain) come from the range-wide variables and are NOT redefined here.
+
+ww_fs_share_root: /srv/samba
+ww_fs_workgroup: WWP
+ww_fs_server_string: "WWP File Services"
+ww_fs_netbios_name: WW-FS01
+
+# Passwords for accounts that are not part of the intended attack path.
+# They are deliberately long and random; they are not meant to be cracked.
+ww_fs_dwhitfield_password: "vK8#qT2m!Rz6pWx4Ls9e"
+ww_fs_moyelaran_password: "Hn3%wP9c@Yb7tQe2Jm5d"
+ww_fs_jalvarez_password: "Xr6!gM4z#Ck8vNa3Uf7w"
+ww_fs_ebrooks_password: "Pt5@hV2n%Lq9sDy6Bk3r"
+ww_fs_tkessler_password: "Wz7#bF3x!Me5rKu8Gc2j"
+
+# Unix groups backing the share ACLs.
+#   eng_ro     - read-only Engineering access (svc_ccrsync added "temporarily"
+#                for INC-2291 and never removed)
+#   public_rw  - write access to Public (union of itstaff + wq)
+ww_fs_groups:
+  - eng_ro
+  - engineering
+  - itstaff
+  - wq
+  - hr
+  - public_rw
+
+# Samba + Linux accounts (all Linux shells are /usr/sbin/nologin).
+# `salt` is fixed per user so the generated SHA-512 hash is stable (idempotent).
+ww_fs_users:
+  - name: svc_ccrsync
+    comment: "CCR report sync service (web01)"
+    password: "{{ ww_ccrsync_password }}"
+    salt: "wwfs01svcccrsync"
+    groups: [eng_ro]
+  - name: d.whitfield
+    comment: "Dana Whitfield,IT,x4102"
+    password: "{{ ww_fs_dwhitfield_password }}"
+    salt: "wwfs01dwhitfield"
+    groups: [itstaff, public_rw]
+  - name: j.alvarez
+    comment: "Jordan Alvarez,IT,x4117"
+    password: "{{ ww_fs_jalvarez_password }}"
+    salt: "wwfs01jalvarez01"
+    groups: [itstaff, public_rw]
+  - name: m.oyelaran
+    comment: "Marcus Oyelaran,Engineering,x4310"
+    password: "{{ ww_fs_moyelaran_password }}"
+    salt: "wwfs01moyelaran1"
+    groups: [engineering]
+  - name: t.kessler
+    comment: "Tom Kessler,Operations,x4201"
+    password: "{{ ww_fs_tkessler_password }}"
+    salt: "wwfs01tkessler01"
+    groups: [engineering, hr]
+  - name: e.brooks
+    comment: "Elena Brooks,Water Quality,x4402"
+    password: "{{ ww_fs_ebrooks_password }}"
+    salt: "wwfs01ebrooks001"
+    groups: [wq, public_rw]
+
+# On-disk layout and Unix permissions per share.
+# Engineering additionally gets a POSIX ACL granting eng_ro read (rX).
+ww_fs_shares:
+  - name: Public
+    dir: Public
+    group: public_rw
+    dir_mode: "2775"
+    file_mode: "0664"
+  - name: Engineering
+    dir: Engineering
+    group: engineering
+    dir_mode: "2770"
+    file_mode: "0660"
+  - name: HR
+    dir: HR
+    group: hr
+    dir_mode: "2770"
+    file_mode: "0660"
+  - name: IT$
+    dir: IT
+    group: itstaff
+    dir_mode: "2770"
+    file_mode: "0660"

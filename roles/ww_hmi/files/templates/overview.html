@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% set auto_refresh = True %}
+{% block subtitle %} - Overview{% endblock %}
+{% set colors = {"ok":"#2fbf71","info":"#3a9ad9","warn":"#e8a33d","alarm":"#e5484d","critical":"#ff2e63"} %}
+{% macro col(site) %}{{ colors.get(statuses[site], "#2fbf71") }}{% endmacro %}
+{% block body %}
+<h1>System Overview &mdash; Cedar Ridge Regional Transmission System</h1>
+
+{% set crit = alarms | selectattr("sev","equalto","critical") | list %}
+{% for a in crit %}
+<div class="banner crit code">{{ a.text }}</div>
+{% endfor %}
+
+<div class="panel">
+  <svg viewBox="0 0 980 300" width="100%" role="img" aria-label="Plant process mimic"
+       font-family="Segoe UI, Arial, sans-serif">
+    <defs>
+      <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+        <path d="M0,0 L6,3 L0,6 Z" fill="#4a6072"/>
+      </marker>
+    </defs>
+
+    <!-- Cedar River -->
+    <text x="40" y="150" fill="#7c8da0" font-size="12">Cedar River</text>
+    <path d="M30,160 q20,-10 40,0 t40,0" stroke="#2a6f97" stroke-width="4" fill="none"/>
+
+    <!-- pipe: river -> intake -->
+    <line x1="112" y1="160" x2="150" y2="160" stroke="#4a6072" stroke-width="6" marker-end="url(#arrow)"/>
+
+    <!-- Intake PS-1 -->
+    <a href="{{ url_for('intake') }}">
+      <rect x="150" y="120" width="140" height="80" rx="6" fill="#121a24" stroke="{{ col('INTAKE') }}" stroke-width="3"/>
+      <circle cx="275" cy="135" r="6" fill="{{ col('INTAKE') }}"/>
+      <text x="165" y="145" fill="#fff" font-size="13" font-weight="700">Intake PS-1</text>
+      <text x="165" y="165" fill="#cdd9e5" font-size="11">Wet-well {{ mimic.intake_level }} ft</text>
+      <text x="165" y="182" fill="#cdd9e5" font-size="11">Flow {{ mimic.intake_flow }} MGD</text>
+    </a>
+
+    <!-- 24" raw main -->
+    <line x1="290" y1="160" x2="360" y2="160" stroke="#4a6072" stroke-width="8" marker-end="url(#arrow)"/>
+    <text x="300" y="150" fill="#55687a" font-size="10">24" raw</text>
+
+    <!-- WTP chemical feed -->
+    <a href="{{ url_for('chemfeed') }}">
+      <rect x="360" y="120" width="150" height="80" rx="6" fill="#121a24" stroke="{{ col('WTP') }}" stroke-width="3"/>
+      <circle cx="495" cy="135" r="6" fill="{{ col('WTP') }}"/>
+      <text x="375" y="145" fill="#fff" font-size="13" font-weight="700">Cedar Ridge WTP</text>
+      <text x="375" y="165" fill="#cdd9e5" font-size="11">Finished pH {{ mimic.wtp_ph }}</text>
+      <text x="375" y="182" fill="#cdd9e5" font-size="11">Cl2 {{ mimic.wtp_cl2 }} mg/L</text>
+    </a>
+
+    <!-- 16" transmission main -->
+    <line x1="510" y1="160" x2="600" y2="160" stroke="#4a6072" stroke-width="8" marker-end="url(#arrow)"/>
+    <text x="518" y="150" fill="#55687a" font-size="10">16" transmission main {{ mimic.main_press }} psi</text>
+
+    <!-- Booster PS-3 -->
+    <a href="{{ url_for('booster') }}">
+      <rect x="600" y="120" width="150" height="80" rx="6" fill="#121a24" stroke="{{ col('BOOSTER') }}" stroke-width="3"/>
+      <circle cx="735" cy="135" r="6" fill="{{ col('BOOSTER') }}"/>
+      <text x="615" y="145" fill="#fff" font-size="13" font-weight="700">Hilltop Booster PS-3</text>
+      <text x="615" y="165" fill="#cdd9e5" font-size="11">Disch {{ mimic.main_press }} psi</text>
+      <text x="615" y="182" fill="#cdd9e5" font-size="11">Flow {{ mimic.booster_flow }} gpm</text>
+    </a>
+
+    <!-- riser to tank -->
+    <line x1="750" y1="160" x2="820" y2="160" stroke="#4a6072" stroke-width="6" marker-end="url(#arrow)"/>
+
+    <!-- Summit Elevated Tank -->
+    <a href="{{ url_for('booster') }}">
+      <rect x="820" y="70" width="120" height="130" rx="6" fill="#121a24" stroke="{{ col('BOOSTER') }}" stroke-width="3"/>
+      {% set lvl = mimic.tank_level|float if mimic.tank_level not in ('-','') else 0 %}
+      {% set fillh = (lvl/40.0*120)|round(0,'floor')|int %}
+      {% if fillh < 0 %}{% set fillh = 0 %}{% elif fillh > 120 %}{% set fillh = 120 %}{% endif %}
+      <rect x="822" y="{{ 198 - fillh }}" width="116" height="{{ fillh }}" fill="rgba(42,111,151,.5)"/>
+      <text x="835" y="92" fill="#fff" font-size="13" font-weight="700">Summit Tank</text>
+      <text x="835" y="186" fill="#cdd9e5" font-size="12" font-weight="700">{{ mimic.tank_level }} ft</text>
+    </a>
+    <text x="828" y="230" fill="#55687a" font-size="10">1.0 MG elevated &rarr; 4 towns</text>
+  </svg>
+</div>
+
+<h2>Station Status</h2>
+<div class="panel" style="display:flex;gap:24px;flex-wrap:wrap">
+  {% for site in ["INTAKE","WTP","BOOSTER"] %}
+  <div>
+    <div style="color:#7c8da0;font-size:12px">{{ site }}</div>
+    <span class="pill s-{{ statuses[site] }}">{{ statuses[site] }}</span>
+  </div>
+  {% endfor %}
+</div>
+
+<h2>Active Alarms ({{ alarms|length }})</h2>
+<div class="panel">
+  {% if alarms %}
+  <table>
+    <tr><th>Severity</th><th>Site</th><th>Message</th></tr>
+    {% for a in alarms %}
+    <tr><td><span class="pill s-{{ a.sev }}">{{ a.sev }}</span></td><td>{{ a.site }}</td>
+        <td {% if a.sev=='critical' %}class="banner code" style="padding:4px 8px"{% endif %}>{{ a.text }}</td></tr>
+    {% endfor %}
+  </table>
+  {% else %}<span style="color:#2fbf71">No active alarms. All stations nominal.</span>{% endif %}
+</div>
+{% endblock %}

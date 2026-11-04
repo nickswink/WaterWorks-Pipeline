@@ -1,0 +1,19 @@
+Hydra Controls Integration - Remote Support Session Log
+Customer: {{ ww_org_name }} (Cedar Ridge)
+Session: 2026-10-12  13:02-14:10 CT
+Engineer: Hydra NOC (vendor account: hydra_vendor @ ww-jump01)
+Ticket: HYD-5548 / customer IT-1179
+
+13:02  Connected to ww-jump01. SSH to ww-eng01 with vendor key (ssh ww-eng01).
+13:10  Opened Unitronics Vision V570 (ww-plc02) chem-feed project for review.
+13:25  Confirmed NaOH/Cl2 dose setpoints at engineered defaults (NaOH 100 ppm).
+13:31  Reminder: HMI caustic dose entry is clamped 0-200 ppm by design.
+13:48  Assisted control room via VNC to HMI {{ ww_net }}.40.10:5900 (shared
+       "controlroom" login) to acknowledge a nuisance pH-HI alarm.
+14:02  Checked SCADAPack 474 (ww-rtu03) booster/tank trends - nominal.
+14:10  Disconnected. No setpoint or logic changes committed.
+
+Note: customer IT may review these logs per SOP OT-RA-03. Vendor key for
+ww-eng01 stays on the jump host under the hydra_vendor account only.
+
+-- End of session --

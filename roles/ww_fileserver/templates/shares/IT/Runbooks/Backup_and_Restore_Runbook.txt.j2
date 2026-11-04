@@ -1,0 +1,26 @@
+WWP IT RUNBOOK RB-05 - BACKUP AND RESTORE
+Owner: Kevin Tran                                  Rev. 2026-05-18
+-----------------------------------------------------------------------
+
+WHAT IS BACKED UP
+  ww-fs01   /srv/samba (all shares)    nightly 23:00 to backup appliance,
+                                       30 daily / 12 monthly
+  ww-it01   /etc config tarball        nightly via cron script
+            /opt/it-scripts/nightly_config_backup.sh ->
+            /var/backups/it/<host>-etc-YYYY-MM-DD.tar.gz  (14 days kept)
+  ww-web01  site content + DB          nightly 01:00
+  OT systems  Engineering's responsibility (PLC project backups on ww-eng01)
+
+THE CONFIG BACKUP SCRIPT (ww-it01)
+  - Lives in /opt/it-scripts/ so the helpdesk can maintain the include list
+    without needing root (group "helpdesk" has write access to the folder).
+  - Runs as root from /etc/cron.d/it-config-backup.
+  - Log: /var/log/it-config-backup.log
+
+RESTORE A FILE FROM THE CONFIG BACKUP
+  sudo tar -tzf /var/backups/it/ww-it01-etc-2026-05-17.tar.gz | grep ssh
+  sudo tar -xzf /var/backups/it/ww-it01-etc-2026-05-17.tar.gz -C /tmp/restore etc/ssh/sshd_config
+
+RESTORE FROM THE BACKUP APPLIANCE
+  Open a ticket; Kevin or Dana run the restore from the appliance console.
+  Test restores are done quarterly (last: 2026-04-09, OK).

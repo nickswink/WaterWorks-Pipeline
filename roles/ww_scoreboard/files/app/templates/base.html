@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{% if refresh %}<meta http-equiv="refresh" content="{{ refresh }}">{% endif %}
+<title>{% block title %}{{ site_subtitle }}{% endblock %} · {{ site_title }}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="lamp"></span>
+    <div>
+      <div class="brand-title">{{ site_title }}</div>
+      <div class="brand-sub">{{ site_subtitle }}</div>
+    </div>
+  </div>
+  <nav>
+    <a href="{{ url_for('scoreboard') }}">Scoreboard</a>
+    <a href="{{ url_for('challenges') }}">Challenges</a>
+    <a href="{{ url_for('rules') }}">Rules</a>
+    {% if team %}
+      <span class="who">{{ team.name }}</span>
+      <form method="post" action="{{ url_for('logout') }}" class="inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="link">Logout</button>
+      </form>
+    {% else %}
+      <a href="{{ url_for('login') }}">Login</a>
+      {% if registration_open %}<a href="{{ url_for('register') }}">Register</a>{% endif %}
+    {% endif %}
+    {% if is_admin %}<a href="{{ url_for('admin') }}" class="amber">Admin</a>{% endif %}
+  </nav>
+</header>
+<div class="flow" aria-hidden="true"></div>
+<main>
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in msgs %}<div class="flash {{ cat }}">{{ m }}</div>{% endfor %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+<footer>Cedar Ridge Regional Transmission System · Red Team Exercise</footer>
+</body>
+</html>

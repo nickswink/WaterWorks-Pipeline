@@ -1,0 +1,4 @@
+# CCR report publishing (E. Brooks / IT-0931)
+# Allows the website service account to run rsync for syncing published
+# Consumer Confidence Reports without a password.
+{{ wwp_web_user }} ALL=(root) NOPASSWD: /usr/bin/rsync
