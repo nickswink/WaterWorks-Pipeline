@@ -25,6 +25,7 @@
       - xterm
       - xfonts-base        # fonts for xterm/fluxbox on a minimal image
       - x11-xkb-utils      # xkb data Xvfb needs to initialise the keymap
+      - x11-xserver-utils  # xsetroot (solid background; silences fbsetbg dialog)
       - x11-utils          # xdpyinfo (session readiness probe)
       - net-tools
     state: present

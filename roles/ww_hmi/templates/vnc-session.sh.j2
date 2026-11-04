@@ -19,6 +19,10 @@ if [ "$ready" -ne 1 ]; then
   exit 1   # let systemd Restart=always try again rather than bind to nothing
 fi
 
+# solid operator-console background (also stops fluxbox's fbsetbg from
+# popping an xmessage dialog when no wallpaper tool is installed)
+xsetroot -solid "#0b3d5c" 2>/dev/null || true
+
 # lightweight window manager
 fluxbox >/tmp/aquaview-fluxbox.log 2>&1 &
 
@@ -28,10 +32,9 @@ xterm -title "AquaView Operator Console — {{ inventory_hostname }}" \
       -e "{{ ww_hmi_app_dir }}/console.sh" &
 
 # Serve the framebuffer over VNC with the classic DES password file.
-# -listen 0.0.0.0 + -rfbportv6 -1 force an IPv4 bind on {{ ww_hmi_vnc_port }};
-# without this x11vnc can bind IPv6 only, which makes an IPv4 health check (and
-# some viewers) fail even though VNC is "up".
+# x11vnc binds IPv4 0.0.0.0:{{ ww_hmi_vnc_port }} by default, which is what the
+# IPv4 health check and plain viewers use. (No -noipv6/-rfbportv6: this x11vnc
+# build rejects them and exits.)
 exec x11vnc -display "$DISPLAY" -rfbport {{ ww_hmi_vnc_port }} \
-     -listen 0.0.0.0 -rfbportv6 -1 \
      -rfbauth "$HOME/.vnc/passwd" -forever -shared -noxdamage \
-     -bg no -o /tmp/aquaview-x11vnc.log
+     -o /tmp/aquaview-x11vnc.log
