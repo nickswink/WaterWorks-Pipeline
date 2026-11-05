@@ -6,6 +6,9 @@ wwp_web_home: /home/wwp-web
 # Application layout (root-owned code, readable by the service account).
 wwp_app_dir: /opt/wwp-portal
 
+# Careers resume uploads (public application drop; writable by the service user).
+wwp_upload_dir: "{{ wwp_app_dir }}/uploads"
+
 # Contractor/staff portal administrator. The password is long and random and is
 # not intended to be cracked; only its hash is written to the app's .env. The
 # intended path to admin is forging a signed session with the leaked SECRET_KEY.

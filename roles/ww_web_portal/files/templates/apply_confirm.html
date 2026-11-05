@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Application Received — {{ org_name }}{% endblock %}
+{% block content %}
+<section class="page-head"><div class="container">
+  <h1>Application Received</h1>
+  <p>Thank you for your interest in joining WaterWorks Pipeline.</p>
+</div></section>
+
+<section class="container prose">
+  <div class="card">
+    <h2>Thank you for applying</h2>
+    <p>
+      {% if applicant %}Thank you, {{ applicant }}. {% endif %}Your application
+      has been received. Our HR team reviews every application and will contact
+      you if your experience matches one of our open positions.
+    </p>
+    <p class="muted">Reference: {{ stored_name }}</p>
+  </div>
+  <p><a class="btn btn-preview" href="{{ url_for('careers') }}">Back to Careers</a></p>
+</section>
+{% endblock %}

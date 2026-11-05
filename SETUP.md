@@ -9,21 +9,24 @@ machine with the client set up and reachable to your Ludus server).
 ## 1. Prerequisites
 
 - A working Ludus server (tested against Ludus client `2.1.x`).
-- The **`debian-12-x64-server`** template built. This is the *only* template the
-  range uses — every host is Debian 12, which keeps the build fast and avoids
-  Windows evaluation-image expiry.
+- Two templates built:
+  - **`debian-12-x64-server`** — used by every Linux host (10 of 12 VMs).
+  - **`win2019-server-x64`** — used by the Windows phishing workstation `ww-ws01`.
 
   ```bash
-  ludus templates list | grep debian-12-x64-server
-  # build it if missing:
+  ludus templates list | grep -E 'debian-12-x64-server|win2019-server-x64'
+  # build whichever is missing:
   ludus templates build -n debian-12-x64-server-template
+  ludus templates build -n win2019-server-x64-template
   ludus templates status
   ```
 
-- ~20 GB RAM and ~22 vCPU across the 11 range VMs + router (all are small;
-  see the table in §5). They overcommit fine on a modest host.
-- No external Ansible Galaxy roles or collections are required — every role is
-  local to this project and depends only on the Debian base packages it installs.
+- ~24 GB RAM and ~24 vCPU across the 12 range VMs + router. The Windows box
+  (`ww-ws01`, 4 GB) is the only heavy one; the rest are small and overcommit fine.
+- The Windows workstation role (`ww_phish_victim`) needs the **`ansible.windows`**
+  and **`community.windows`** collections. `./deploy.sh deps` installs them
+  automatically (`ludus ansible collection add ...`); the Linux roles need no
+  external Galaxy content.
 
 ---
 
@@ -120,6 +123,7 @@ own DNS for connected clients.
 | ww-web01 | DMZ web | 10 | .10 | 2 | 2 | `ww_web_portal` |
 | ww-fs01 | File server | 20 | .10 | 2 | 2 | `ww_fileserver` |
 | ww-it01 | IT admin | 20 | .20 | 2 | 2 | `ww_itadmin` |
+| ww-ws01 | HR workstation (Windows 2019) | 20 | .30 | 4 | 2 | `ww_phish_victim` |
 | ww-hist01 | Historian | 30 | .10 | 2 | 2 | `ww_historian` |
 | ww-jump01 | Jump host | 30 | .20 | 2 | 2 | `ww_jumphost` |
 | ww-hmi01 | SCADA HMI | 40 | .10 | 4 | 2 | `ww_hmi` |
@@ -129,7 +133,10 @@ own DNS for connected clients.
 | ww-rtu03 | Booster RTU | 50 | .30 | 1 | 1 | `ww_plc` (booster) |
 | ww-score | Scoreboard | 60 | .10 | 2 | 2 | `ww_scoreboard` |
 
-Every host also runs `ww_sanitize` last to remove build artifacts.
+Every Linux host also runs `ww_sanitize` last to remove build artifacts.
+`ww-ws01` (Windows) reboots at the end of its role so the HR autologon + the
+"HR Resume Intake" task start; after deploy it should be sitting logged in as
+`a.wallace` with the intake task polling the careers page.
 
 ---
 

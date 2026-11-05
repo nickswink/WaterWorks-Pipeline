@@ -63,6 +63,53 @@
     group: "{{ wwp_web_user }}"
     mode: "0750"
 
+- name: Create careers resume uploads directory (writable by the service account)
+  ansible.builtin.file:
+    path: "{{ wwp_upload_dir }}"
+    state: directory
+    owner: "{{ wwp_web_user }}"
+    group: "{{ wwp_web_user }}"
+    mode: "0775"
+
+- name: Seed benign sample applications into the uploads directory
+  ansible.builtin.copy:
+    content: "{{ item.content }}"
+    dest: "{{ wwp_upload_dir }}/{{ item.name }}"
+    owner: "{{ wwp_web_user }}"
+    group: "{{ wwp_web_user }}"
+    mode: "0664"
+    force: false
+  loop:
+    - name: "cover_letter_j_navarro.txt"
+      content: |
+        Dear Hiring Team,
+
+        Please accept my application for the Water Treatment Operator (Class II)
+        position. I hold a current state Class II operator license and have six
+        years of experience operating conventional surface-water treatment
+        processes, chemical feed systems, and plant SCADA screens.
+
+        I am excited about the opportunity to support safe, reliable water for
+        the Cedar Ridge region.
+
+        Sincerely,
+        J. Navarro
+    - name: "resume_a_whitfield.txt"
+      content: |
+        Alex Whitfield
+        Field Technician — Pumps & Instrumentation
+
+        Experience
+          - 4 years maintaining pumps, valves, and instrumentation on a
+            regional transmission system.
+          - Preventive maintenance, troubleshooting, and repair of booster
+            pump stations.
+
+        Certifications
+          - Backflow prevention assembly tester.
+  loop_control:
+    label: "{{ item.name }}"
+
 - name: Deploy Flask application
   ansible.builtin.copy:
     src: app.py

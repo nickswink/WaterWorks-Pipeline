@@ -36,6 +36,22 @@ ww_scoreboard_event_hold_s: "{{ ww_plc_event_hold_s | default(600) }}"
 # operator supplies their own briefing text for those objectives.
 # ---------------------------------------------------------------------------
 ww_scoreboard_challenges:
+  - key: foothold_phish
+    title: "Spear the Applicant"
+    category: Initial Access
+    points: 150
+    host: "ww-ws01 (HR workstation, internal)"
+    description: >-
+      WaterWorks Pipeline Co. is hiring, and the public careers page lets anyone
+      upload a resume. Human Resources reviews every application the moment it
+      arrives — a little too eagerly, and on a workstation that trusts whatever
+      it is handed. Deliver a resume that opens itself, catch the call-back, and
+      read the flag on the reviewer's desktop. (Bring your own payload/C2 and
+      make it double-clickable: .exe, .scr, .vbs, .bat, .cmd, .hta, .lnk, …)
+    hints:
+      - "What does an applicant 'submit' on a careers page, and who opens it?"
+      - "Your implant runs as the HR user and must call back out to you — the flag is on their Desktop."
+
   - key: web_recon
     title: "Pre-Launch Leftovers"
     category: Recon

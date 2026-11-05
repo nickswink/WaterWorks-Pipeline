@@ -9,6 +9,7 @@ and a login area for contractors and staff.
 import json
 import os
 import sqlite3
+import uuid
 from datetime import datetime
 
 from flask import (
@@ -25,6 +26,7 @@ from flask import (
     url_for,
 )
 from werkzeug.security import check_password_hash
+from werkzeug.utils import secure_filename
 
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -52,7 +54,12 @@ app.config["SECRET_KEY"] = ENV.get("FLASK_SECRET_KEY", "change-me")
 app.config["PORTAL_ADMIN_USER"] = ENV.get("PORTAL_ADMIN_USER", "webadmin")
 app.config["PORTAL_ADMIN_HASH"] = ENV.get("PORTAL_ADMIN_PASSWORD_HASH", "")
 
+# Resume uploads: cap request bodies at 25 MB so a single applicant cannot
+# fill the disk. Larger uploads trigger a 413 handled gracefully below.
+app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
+
 REPORTS_DIR = ENV.get("REPORTS_DIR", os.path.join(APP_ROOT, "reports"))
+UPLOAD_DIR = ENV.get("WW_UPLOAD_DIR", os.path.join(APP_ROOT, "uploads"))
 NOTICES_DB = os.path.join(APP_ROOT, "data", "notices.db")
 STAGING_FILE = os.path.join(APP_ROOT, "content", "staging.html")
 
@@ -132,6 +139,129 @@ def notices():
 @app.route("/careers")
 def careers():
     return render_template("careers.html")
+
+
+# --------------------------------------------------------------------------- #
+#  Careers: public resume drop (HR review queue)
+# --------------------------------------------------------------------------- #
+def _safe_upload_name(name):
+    """Reduce an uploaded filename to a safe basename, preserving extension.
+
+    Uses werkzeug.secure_filename to strip directories and traversal. If the
+    sanitized name is empty (e.g. the original was all unsafe characters),
+    fall back to a generated name while keeping the original extension.
+    """
+    base = os.path.basename(name or "")
+    safe = secure_filename(base)
+    if not safe:
+        _, ext = os.path.splitext(base)
+        ext = ext if ext else ".bin"
+        safe = "resume-%s%s" % (uuid.uuid4().hex[:8], ext)
+    return safe
+
+
+def _unique_path(directory, name):
+    """Return a path inside directory that does not yet exist.
+
+    If name is already taken, append -1, -2, ... before the extension so
+    multiple applications coexist rather than overwriting each other.
+    """
+    candidate = os.path.join(directory, name)
+    if not os.path.exists(candidate):
+        return candidate
+    stem, ext = os.path.splitext(name)
+    i = 1
+    while True:
+        candidate = os.path.join(directory, "%s-%d%s" % (stem, i, ext))
+        if not os.path.exists(candidate):
+            return candidate
+        i += 1
+
+
+def _resolve_upload(name):
+    """Resolve a requested upload name to an absolute path inside UPLOAD_DIR.
+
+    Returns None if the name escapes the uploads directory (path traversal).
+    """
+    base = os.path.basename(name or "")
+    if not base or base in (".", ".."):
+        return None
+    uploads_root = os.path.realpath(UPLOAD_DIR)
+    target = os.path.realpath(os.path.join(uploads_root, base))
+    if target != uploads_root and os.path.commonpath([uploads_root, target]) != uploads_root:
+        return None
+    if target == uploads_root:
+        return None
+    return target
+
+
+@app.route("/careers/apply", methods=["POST"])
+def careers_apply():
+    """Accept a resume upload from the public careers page and store it."""
+    upload = request.files.get("resume")
+    applicant = request.form.get("name", "").strip()
+    if upload is None or not upload.filename:
+        flash("Please attach a resume file before submitting your application.")
+        return redirect(url_for("careers"))
+
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    name = _safe_upload_name(upload.filename)
+    dest = _unique_path(UPLOAD_DIR, name)
+    upload.save(dest)
+
+    return render_template(
+        "apply_confirm.html",
+        applicant=applicant,
+        stored_name=os.path.basename(dest),
+    )
+
+
+@app.route("/careers/inbox.json")
+def careers_inbox():
+    """List every resume currently in the uploads directory, newest first."""
+    files = []
+    try:
+        for entry in os.listdir(UPLOAD_DIR):
+            full = os.path.join(UPLOAD_DIR, entry)
+            if not os.path.isfile(full):
+                continue
+            st = os.stat(full)
+            files.append(
+                {
+                    "name": entry,
+                    "size": int(st.st_size),
+                    "mtime": int(st.st_mtime),
+                }
+            )
+    except OSError:
+        files = []
+    files.sort(key=lambda f: f["mtime"], reverse=True)
+    return Response(
+        json.dumps({"files": files}), mimetype="application/json"
+    )
+
+
+@app.route("/careers/files/<path:name>")
+def careers_file(name):
+    """Stream the raw bytes of a stored resume as an attachment."""
+    target = _resolve_upload(name)
+    if target is None or not os.path.isfile(target):
+        abort(404)
+    return send_file(
+        target,
+        mimetype="application/octet-stream",
+        as_attachment=True,
+        download_name=os.path.basename(target),
+    )
+
+
+@app.errorhandler(413)
+def too_large(_err):
+    """Return a friendly message when an upload exceeds MAX_CONTENT_LENGTH."""
+    return (
+        render_template("apply_too_large.html"),
+        413,
+    )
 
 
 @app.route("/contact", methods=["GET", "POST"])

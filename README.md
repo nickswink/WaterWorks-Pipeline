@@ -57,7 +57,7 @@ be reached by pivoting.
 | Zone | VLAN | Hosts | Reachable from |
 |------|------|-------|----------------|
 | Internet DMZ (L5) | 10 | `ww-web01` — public website & contractor portal | **You (VPN)** |
-| Corporate IT (L4) | 20 | `ww-fs01` file server, `ww-it01` admin server | the DMZ / internal |
+| Corporate IT (L4) | 20 | `ww-fs01` file server, `ww-it01` admin server, `ww-ws01` HR workstation (Windows) | the DMZ / internal |
 | OT DMZ (L3.5) | 30 | `ww-hist01` historian, `ww-jump01` jump host | corporate IT |
 | SCADA (L2/L3) | 40 | `ww-hmi01` HMI, `ww-eng01` engineering workstation | the OT DMZ |
 | Field (L1) | 50 | `ww-plc01`, `ww-plc02`, `ww-rtu03` controllers | SCADA only |
@@ -97,10 +97,16 @@ minutes the simulated plant "repairs" itself so the challenge is replayable.
 
 ## Objectives & scoring
 
-There are **21 flags** (format `WTR{...}`) worth 4,050 points, grouped by category:
+There are **22 flags** (format `WTR{...}`) worth 4,200 points, grouped by category:
 
 Recon · Initial Access · Privilege Escalation · Lateral Movement · OT DMZ ·
 OT Access · OT Recon · **Impact** · Intel
+
+There are **two ways in**: pop the public web app on `ww-web01`, **or** phish the
+company — the public **Careers** page takes resume uploads, and an HR user on the
+Windows workstation `ww-ws01` opens whatever is submitted. Drop a double-clickable
+payload (`.exe/.scr/.vbs/.bat/.cmd/.hta/.lnk`) with your own C2, catch the beacon,
+and you land straight inside Corporate IT. Either foothold leads to the rest.
 
 - **Scoreboard:** `http://<10.x.60.10>` (also `http://scoreboard.range`). Register
   a team, read each challenge's objective, and submit flags there. The board shows

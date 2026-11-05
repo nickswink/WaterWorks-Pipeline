@@ -1,0 +1,24 @@
+---
+galaxy_info:
+  role_name: ww_phish_victim
+  author: risk3sixty
+  description: >-
+    WaterWorks Pipeline HR reviewer workstation. Models an employee whose
+    "resume intake" automation downloads and opens every file uploaded to the
+    public careers portal, detonating operator payloads in an interactive
+    session for the initial-access path.
+  license: MIT
+  min_ansible_version: "2.12"
+  platforms:
+    - name: Windows
+      versions:
+        - all
+  galaxy_tags:
+    - windows
+    - phishing
+    - ics
+dependencies: []
+
+collections:
+  - ansible.windows
+  - community.windows

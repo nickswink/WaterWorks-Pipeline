@@ -1,0 +1,176 @@
+---
+# ===========================================================================
+# ww_phish_victim — HR reviewer workstation (WW-WS01), standalone workgroup.
+#
+# Initial-access mechanic: the HR reviewer is auto-logged on and runs a
+# recurring "resume intake" task that downloads every file uploaded to the
+# public careers portal and OPENS it as if double-clicked, detonating the
+# operator's payload in the interactive session so it beacons out.
+# ===========================================================================
+
+# --- 0. Pre-flight ---------------------------------------------------------
+- name: Assert the phishing foothold flag is defined
+  ansible.builtin.assert:
+    that:
+      - ww_flags is defined
+      - ww_flags.foothold_phish is defined
+      - (ww_flags.foothold_phish | string | length) > 0
+    fail_msg: "ww_flags.foothold_phish must be defined in range.yaml global_role_vars."
+    success_msg: "Foothold flag present; configuring the HR workstation."
+
+# --- 1. The victim local account (standard user, Users group only) ---------
+- name: Create the HR reviewer local account (standard user)
+  ansible.windows.win_user:
+    name: "{{ ww_ws_victim_user }}"
+    fullname: "{{ ww_ws_victim_fullname }}"
+    description: "{{ ww_ws_victim_description }}"
+    password: "{{ ww_ws_victim_password }}"
+    update_password: on_create
+    password_never_expires: true
+    user_cannot_change_password: true
+    account_disabled: false
+    account_locked: false
+    groups:
+      - Users
+    groups_action: replace
+    state: present
+
+# --- Working directories (MACHINE path only) -------------------------------
+# IMPORTANT: never pre-create C:\Users\<victim>. If that folder exists before the
+# user's first interactive logon, Windows refuses to use it as the profile and
+# creates a suffixed one (e.g. a.wallace.WW-WS01) instead, orphaning anything we
+# planted. All seed content lives under the machine path and is copied onto the
+# real profile at logon by the poller (which runs AS the victim, so
+# $env:USERPROFILE always points at the correct profile).
+- name: Ensure the machine intake directories exist
+  ansible.windows.win_file:
+    path: "{{ item }}"
+    state: directory
+  loop:
+    - "{{ ww_phish_victim_install_dir }}"
+    - "{{ ww_phish_victim_install_dir }}\\samples"
+
+# The poller runs as the (standard) victim user and must write seen.txt / its log
+# here. This dir is created by the admin connection, so grant the victim Modify or
+# those writes fail with Access Denied.
+- name: Grant the victim Modify rights on the intake directory
+  ansible.windows.win_acl:
+    path: "{{ ww_phish_victim_install_dir }}"
+    user: "{{ ww_ws_victim_user }}"
+    rights: Modify,Synchronize
+    type: allow
+    state: present
+    inherit: ContainerInherit, ObjectInherit
+    propagation: 'None'
+
+# --- 2a. Disable Microsoft Defender ----------------------------------------
+- name: Policy-disable Microsoft Defender antispyware
+  ansible.windows.win_regedit:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender
+    name: DisableAntiSpyware
+    data: 1
+    type: dword
+
+- name: Best-effort disable Defender real-time monitoring and add intake exclusions
+  ansible.windows.win_shell: |
+    try {
+      Set-MpPreference -DisableRealtimeMonitoring $true `
+        -ExclusionPath 'C:\Users\{{ ww_ws_victim_user }}\Downloads','C:\ProgramData\HRIntake' `
+        -ErrorAction Stop
+    } catch { }
+  register: ww_defender_pref
+  changed_when: false
+  failed_when: false
+
+# --- 2b. Disable SmartScreen + suppress Mark-of-the-Web prompts ------------
+- name: Policy-disable SmartScreen (Explorer/shell)
+  ansible.windows.win_regedit:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\System
+    name: EnableSmartScreen
+    data: 0
+    type: dword
+
+- name: Suppress Mark-of-the-Web / attachment-manager open prompts (machine policy)
+  ansible.windows.win_regedit:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Attachments
+    name: SaveZoneInformation
+    data: 1
+    type: dword
+
+# --- 3. Deploy the "resume intake" poller ----------------------------------
+- name: Deploy the resume intake poller
+  ansible.windows.win_template:
+    src: intake.ps1.j2
+    dest: "{{ ww_phish_victim_install_dir }}\\intake.ps1"
+
+# --- 4. Autologon for the victim (real interactive session) ----------------
+- name: Configure autologon for the HR reviewer
+  ansible.windows.win_regedit:
+    path: HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon
+    name: "{{ item.name }}"
+    data: "{{ item.data }}"
+    type: string
+  loop:
+    - { name: "AutoAdminLogon", data: "1" }
+    - { name: "DefaultUserName", data: "{{ ww_ws_victim_user }}" }
+    - { name: "DefaultPassword", data: "{{ ww_ws_victim_password }}" }
+    - { name: "DefaultDomainName", data: "{{ ww_phish_victim_logon_domain }}" }
+  no_log: true
+
+# --- 5. Scheduled task: run the poller in the victim's interactive session --
+- name: Install the "HR Resume Intake" logon task
+  community.windows.win_scheduled_task:
+    name: HR Resume Intake
+    description: Downloads newly submitted applications from the careers page and opens them for review.
+    username: "{{ ww_ws_victim_user }}"
+    password: "{{ ww_ws_victim_password }}"
+    logon_type: interactive_token
+    run_level: limited
+    state: present
+    enabled: true
+    actions:
+      - path: powershell.exe
+        arguments: >-
+          -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass
+          -File "{{ ww_phish_victim_install_dir }}\intake.ps1"
+    triggers:
+      - type: logon
+        username: "{{ ww_ws_victim_user }}"
+
+# --- 6. Plant the flag + seed content into the MACHINE intake dir -----------
+# All of this is copied onto the real profile (Desktop/Documents/Downloads) by
+# the poller at logon, so it is correct regardless of the profile folder's name.
+- name: Plant the foothold flag source in the machine intake directory
+  ansible.windows.win_copy:
+    content: "{{ ww_flags.foothold_phish }}\r\n"
+    dest: "{{ ww_phish_victim_install_dir }}\\flag.txt"
+
+# --- 7. Immersive HR content (in-world hint + benign samples) ---------------
+- name: Stage the HR Resume Intake quick-reference in the machine intake dir
+  ansible.windows.win_template:
+    src: HR_Resume_Intake_README.txt.j2
+    dest: "{{ ww_phish_victim_install_dir }}\\HR_Resume_Intake_README.txt"
+
+- name: Stage benign sample resumes in the machine intake dir
+  ansible.windows.win_copy:
+    src: "{{ item }}"
+    dest: "{{ ww_phish_victim_install_dir }}\\samples\\{{ item }}"
+  loop:
+    - resume_samuel_ortiz.txt
+    - resume_dana_fuller.txt
+    - resume_priya_nair.txt
+
+- name: Pre-mark the sample resumes as already processed
+  ansible.windows.win_copy:
+    dest: "{{ ww_phish_victim_install_dir }}\\seen.txt"
+    content: |
+      resume_samuel_ortiz.txt
+      resume_dana_fuller.txt
+      resume_priya_nair.txt
+
+# --- 8. Reboot so autologon + the onlogon task start the poller ------------
+- name: Reboot so autologon starts the session and launches the intake task
+  ansible.windows.win_reboot:
+    msg: "Applying HR workstation configuration"
+    reboot_timeout: 1800
+  when: ww_phish_victim_reboot | bool

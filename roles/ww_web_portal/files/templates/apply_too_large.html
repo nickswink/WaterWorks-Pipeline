@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}File Too Large — {{ org_name }}{% endblock %}
+{% block content %}
+<section class="page-head"><div class="container">
+  <h1>Resume Too Large</h1>
+  <p>We could not accept your upload.</p>
+</div></section>
+
+<section class="container prose">
+  <div class="card">
+    <h2>That file is too large</h2>
+    <p>
+      Resume uploads are limited to 25&nbsp;MB. Please compress your file or
+      submit a smaller version and try again.
+    </p>
+  </div>
+  <p><a class="btn btn-preview" href="{{ url_for('careers') }}">Back to Careers</a></p>
+</section>
+{% endblock %}

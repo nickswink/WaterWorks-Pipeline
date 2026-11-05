@@ -36,10 +36,22 @@ LOCAL_ROLES=(
   roles/ww_engws
   roles/ww_plc
   roles/ww_scoreboard
+  roles/ww_phish_victim
   roles/ww_sanitize
 )
 
+# Collections needed by the Windows phishing workstation (ww-ws01 / ww_phish_victim)
+GALAXY_COLLECTIONS=(
+  ansible.windows
+  community.windows
+)
+
 install_deps() {
+  echo "==> Installing Galaxy collections (Windows support)"
+  for c in "${GALAXY_COLLECTIONS[@]}"; do
+    echo "    - $c"
+    "$LUDUS" ansible collection add "$c" || echo "      (already present or add failed: $c)"
+  done
   echo "==> Installing local roles from this project"
   for d in "${LOCAL_ROLES[@]}"; do
     if [[ -d "$HERE/$d" ]]; then

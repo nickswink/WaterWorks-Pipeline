@@ -54,9 +54,13 @@ global_role_vars:
   ww_rtu03_maint_key: 8042
   ww_scoreboard_admin_password: "Sc0reb0ard#Admin-WWP"
   ww_plc_event_hold_s: 600              # seconds an impact event latches before the plant "repairs"
+  # --- Windows phishing workstation (ww-ws01) ---
+  ww_ws_victim_user: "a.wallace"        # HR reviewer auto-logged-on; runs the "resume intake" opener
+  ww_ws_victim_password: "Autumn2026!Review"
 
   # --- CTF flags (the scoreboard hashes these at deploy time) ---
   ww_flags:
+    foothold_phish: "WTR{r3sum3_dr0p_d3t0n4t3d_0n_ww_ws01}"
     web_recon: "WTR{r0b0ts_l34k_th3_st4g1ng_p0rt4l}"
     web_lfi: "WTR{ccr_r3p0rt_p4th_tr4v3rs4l}"
     web_rce: "WTR{b01l_w4t3r_n0t1c3_sst1}"
@@ -152,6 +156,26 @@ ludus:
             role: ww_itadmin
     role_vars:
       ww_motd_role: "IT administration server"
+
+  # --- Windows phishing target (HR reviewer workstation) --------------------
+  #  Initial-access path: attacker uploads a booby-trapped "resume" to the
+  #  public careers portal on ww-web01; the auto-logged-on HR user here runs a
+  #  "resume intake" task that downloads and OPENS (double-clicks) each new file,
+  #  detonating the payload and beaconing back to the operator over WireGuard.
+  - vm_name: "{{ range_id }}-ww-ws01"
+    hostname: "WW-WS01"
+    template: win2019-server-x64-template
+    vlan: 20
+    ip_last_octet: 30
+    ram_gb: 4
+    cpus: 2
+    windows:
+      sysprep: true
+    # No `domain:` block — standalone workgroup workstation.
+    roles:
+      - ww_phish_victim
+    role_vars:
+      ww_motd_role: "HR workstation"
 
   # ==========================================================================
   #  VLAN 30 — OT DMZ (Purdue L3.5)
@@ -389,6 +413,13 @@ network:
     - name: "DMZ web server egress to players (callbacks / C2)"
       vlan_src: 10
       ip_last_octet_src: 10
+      vlan_dst: wireguard
+      protocol: all
+      ports: all
+      action: ACCEPT
+    - name: "WS01 phishing beacon egress to players (C2)"
+      vlan_src: 20
+      ip_last_octet_src: 30
       vlan_dst: wireguard
       protocol: all
       ports: all

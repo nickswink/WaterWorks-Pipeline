@@ -1,0 +1,51 @@
+---
+# ---------------------------------------------------------------------------
+# ww_phish_victim — WaterWorks Pipeline HR reviewer workstation (WW-WS01).
+#
+# A standalone (workgroup) Windows workstation. The HR reviewer is auto-logged
+# on and runs a recurring "resume intake" task that downloads every file
+# uploaded to the public careers portal and OPENS it as if double-clicked,
+# detonating any operator payload in the interactive session.
+#
+# The scenario-wide values (ww_net, ww_ws_victim_user, ww_ws_victim_password,
+# ww_flags, ww_org_name) come from global_role_vars in range.yaml. The
+# defaults below are local knobs with safe fallbacks so the role is runnable
+# on its own and overridable from range.yaml / role_vars.
+# ---------------------------------------------------------------------------
+
+# Local victim account (the HR reviewer). Overridden by global_role_vars.
+ww_ws_victim_user: "a.wallace"
+ww_ws_victim_password: "Autumn2026!Review"
+ww_ws_victim_fullname: "Amanda Wallace"
+ww_ws_victim_description: "HR / Talent Acquisition"
+
+# Scenario network prefix (e.g. "10.9"). Overridden by global_role_vars.
+ww_net: "10.9"
+
+# Organisation label used in the in-world HR content. Overridden by global_role_vars.
+ww_org_name: "WaterWorks Pipeline Co."
+
+# Careers portal the intake poller reads from (IP, not DNS, for robustness).
+# Contract:
+#   GET {{ ww_phish_victim_portal_base }}/careers/inbox.json
+#   GET {{ ww_phish_victim_portal_base }}/careers/files/<name>
+ww_phish_victim_portal_base: "http://{{ ww_net }}.10.10"
+
+# How often the intake poller checks the portal, in seconds.
+ww_phish_victim_poll_seconds: 20
+
+# Where the intake automation lives on disk.
+ww_phish_victim_install_dir: 'C:\ProgramData\HRIntake'
+
+# The victim's Downloads folder (where resumes land and detonate).
+ww_phish_victim_downloads_dir: "C:\\Users\\{{ ww_ws_victim_user }}\\Downloads"
+
+# The victim's Desktop / Documents (immersive HR content + flag).
+ww_phish_victim_desktop_dir: "C:\\Users\\{{ ww_ws_victim_user }}\\Desktop"
+ww_phish_victim_documents_dir: "C:\\Users\\{{ ww_ws_victim_user }}\\Documents"
+
+# DefaultDomainName for autologon on a standalone box ("." = local machine).
+ww_phish_victim_logon_domain: "WW-WS01"
+
+# Reboot at the end so autologon + the onlogon intake task start the session.
+ww_phish_victim_reboot: true

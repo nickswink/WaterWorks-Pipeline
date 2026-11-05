@@ -1,0 +1,145 @@
+<#
+    HR Resume Intake  --  {{ ww_org_name }} / Talent Acquisition
+
+    Automated applicant processing helper. Every cycle this tool checks the
+    public careers portal for newly submitted applications, downloads each one
+    into the reviewer's Downloads folder, and opens it for review exactly as if
+    the reviewer had double-clicked it (the registered default action for the
+    file type). Files already handled are tracked in seen.txt so each resume is
+    only opened once. All activity is written to intake.log.
+
+    Runs continuously in the reviewer's interactive desktop session (started by
+    the logon scheduled task). It is written to never crash the session: every
+    network call and every file open is wrapped so a single bad item cannot
+    stop the loop.
+#>
+
+# ---- configuration (templated at deploy time) -----------------------------
+$Base    = "{{ ww_phish_victim_portal_base }}"
+# Downloads is resolved at RUNTIME from the real profile of whoever is logged on
+# (this script runs as the HR reviewer), so it is correct even if the profile
+# folder is suffixed (e.g. a.wallace.WW-WS01).
+$Dl      = Join-Path $env:USERPROFILE "Downloads"
+$Root    = "{{ ww_phish_victim_install_dir }}"
+$Seen    = Join-Path $Root "seen.txt"
+$Log     = Join-Path $Root "intake.log"
+$Poll    = {{ ww_phish_victim_poll_seconds }}
+$InboxUrl = "$Base/careers/inbox.json"
+# ---------------------------------------------------------------------------
+
+$ErrorActionPreference = "Continue"
+$ProgressPreference    = "SilentlyContinue"
+
+function Write-Log($msg) {
+    try {
+        $line = "{0}  {1}" -f (Get-Date -Format "s"), $msg
+        Add-Content -Path $Log -Value $line -ErrorAction SilentlyContinue
+    } catch { }
+}
+
+# Make sure the working folders exist.
+foreach ($d in @($Root, $Dl)) {
+    try {
+        if (-not (Test-Path -LiteralPath $d)) {
+            New-Item -ItemType Directory -Path $d -Force | Out-Null
+        }
+    } catch { }
+}
+if (-not (Test-Path -LiteralPath $Seen)) {
+    try { New-Item -ItemType File -Path $Seen -Force | Out-Null } catch { }
+}
+
+# Materialize seed content onto THIS session's REAL profile. $env:USERPROFILE
+# resolves to the actual profile path at logon (even a suffixed one like
+# a.wallace.WW-WS01), so the flag, HR note and sample resumes always land in the
+# right place -- nothing was written under C:\Users\<victim> at deploy time.
+try {
+    $desktop = Join-Path $env:USERPROFILE "Desktop"
+    $docs    = Join-Path $env:USERPROFILE "Documents"
+    foreach ($d in @($desktop, $docs)) {
+        if (-not (Test-Path -LiteralPath $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
+    }
+    # the foothold flag (reward) on the desktop
+    $flagSrc = Join-Path $Root "flag.txt"
+    if (Test-Path -LiteralPath $flagSrc) {
+        Copy-Item -LiteralPath $flagSrc -Destination (Join-Path $desktop "flag.txt") -Force -ErrorAction SilentlyContinue
+    }
+    # the in-world HR quick-reference on the desktop and in Documents
+    $readme = Join-Path $Root "HR_Resume_Intake_README.txt"
+    if (Test-Path -LiteralPath $readme) {
+        Copy-Item -LiteralPath $readme -Destination (Join-Path $desktop "HR_Resume_Intake_README.txt") -Force -ErrorAction SilentlyContinue
+        Copy-Item -LiteralPath $readme -Destination (Join-Path $docs    "HR_Resume_Intake_README.txt") -Force -ErrorAction SilentlyContinue
+    }
+    # benign sample resumes already "reviewed" (pre-marked seen)
+    $samples = Join-Path $Root "samples"
+    if (Test-Path -LiteralPath $samples) {
+        Get-ChildItem -LiteralPath $samples -File -ErrorAction SilentlyContinue | ForEach-Object {
+            Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $Dl $_.Name) -Force -ErrorAction SilentlyContinue
+        }
+    }
+} catch { }
+
+Write-Log "resume intake started; user=$env:USERNAME profile=$env:USERPROFILE portal=$Base downloads=$Dl interval=${Poll}s"
+
+while ($true) {
+    try {
+        # Load the list of files we have already opened this run (and previous runs).
+        $already = @()
+        try {
+            if (Test-Path -LiteralPath $Seen) {
+                $already = @(Get-Content -LiteralPath $Seen -ErrorAction SilentlyContinue)
+            }
+        } catch { $already = @() }
+
+        # Ask the careers portal what has been submitted (newest first).
+        $inbox = $null
+        try {
+            $inbox = Invoke-RestMethod -Uri $InboxUrl -TimeoutSec 20 -UseBasicParsing
+        } catch {
+            Write-Log ("inbox check failed: " + $_.Exception.Message)
+        }
+
+        if ($inbox -ne $null -and $inbox.files -ne $null) {
+            foreach ($f in $inbox.files) {
+                try {
+                    $name = [string]$f.name
+                    if ([string]::IsNullOrWhiteSpace($name)) { continue }
+
+                    # Only ever act on the bare file name (no path traversal).
+                    $leaf = Split-Path -Path $name -Leaf
+                    if ($already -contains $leaf) { continue }
+
+                    $dest = Join-Path $Dl $leaf
+                    $url  = "$Base/careers/files/$leaf"
+
+                    # Download the submitted application.
+                    Invoke-WebRequest -Uri $url -OutFile $dest -TimeoutSec 60 -UseBasicParsing
+                    Write-Log "downloaded application: $leaf"
+
+                    # Strip Mark-of-the-Web so review opens without a prompt.
+                    try { Unblock-File -LiteralPath $dest -ErrorAction SilentlyContinue } catch { }
+
+                    # Record it as handled BEFORE opening, so a hang does not re-open it.
+                    try { Add-Content -Path $Seen -Value $leaf -ErrorAction SilentlyContinue } catch { }
+                    $already += $leaf
+
+                    # Open for review: ShellExecute via the registered handler --
+                    # the exact behaviour of double-clicking the file in Explorer.
+                    try {
+                        Start-Process -FilePath $dest -WorkingDirectory $Dl
+                        Write-Log "opened for review: $leaf"
+                    } catch {
+                        Write-Log ("open failed for " + $leaf + ": " + $_.Exception.Message)
+                    }
+                } catch {
+                    Write-Log ("skipped an entry: " + $_.Exception.Message)
+                    continue
+                }
+            }
+        }
+    } catch {
+        Write-Log ("intake cycle error: " + $_.Exception.Message)
+    }
+
+    Start-Sleep -Seconds $Poll
+}

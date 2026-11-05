@@ -44,9 +44,22 @@
 
   <h2>How to apply</h2>
   <p>
-    Send a resume and cover letter to
+    Submit your application below, or send a resume and cover letter to
     <a href="mailto:careers@{{ org_domain }}">careers@{{ org_domain }}</a>.
     WaterWorks Pipeline Co. is an Equal Opportunity Employer.
   </p>
+
+  <form class="contact-form" method="post" action="{{ url_for('careers_apply') }}"
+        enctype="multipart/form-data">
+    <h2>Apply now &mdash; upload your resume</h2>
+    <p class="muted">Attach your resume and our HR team will be in touch.
+       Accepted file types include PDF, Word, and plain text.</p>
+    <label>Full name<input type="text" name="name" autocomplete="name"></label>
+    <label>Email<input type="email" name="email" autocomplete="email"></label>
+    <label>Resume<input type="file" name="resume" required></label>
+    <div class="form-actions">
+      <button class="btn" type="submit">Submit application</button>
+    </div>
+  </form>
 </div></section>
 {% endblock %}

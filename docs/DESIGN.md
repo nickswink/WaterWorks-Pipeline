@@ -30,6 +30,7 @@ Cedar River ──► Intake PS-1 ──24" raw main──► Cedar Ridge WTP �
 | Priya Raman | `p.raman` | Control Room Operator (lead) | uses shared `controlroom` login |
 | Tom Kessler | `t.kessler` | Plant Superintendent | |
 | Jordan Alvarez | `j.alvarez` | Helpdesk Technician (hired 2026-09-08) | still on new-hire default password |
+| Amanda Wallace | `a.wallace` | HR reviewer (ww-ws01 Windows) | auto-logged-on; opens uploaded resumes |
 | Elena Brooks | `e.brooks` | Water Quality Manager | publishes CCR reports |
 | Ray Castillo | `r.castillo` | Field Technician, Pump Stations | |
 | Hydra Controls | `hydra_vendor` | Vendor remote support account | |
@@ -42,7 +43,7 @@ Cedar River ──► Intake PS-1 ──24" raw main──► Cedar Ridge WTP �
 | VLAN | Subnet | Zone (Purdue) | Hosts |
 |---|---|---|---|
 | 10 | 10.X.10.0/24 | Internet DMZ (L5/DMZ) | ww-web01 .10 |
-| 20 | 10.X.20.0/24 | Corporate IT (L4) | ww-fs01 .10, ww-it01 .20 |
+| 20 | 10.X.20.0/24 | Corporate IT (L4) | ww-fs01 .10, ww-it01 .20, **ww-ws01 .30 (Windows HR workstation)** |
 | 30 | 10.X.30.0/24 | OT DMZ (L3.5) | ww-hist01 .10, ww-jump01 .20 |
 | 40 | 10.X.40.0/24 | SCADA Control Center (L2/L3) | ww-hmi01 .10, ww-eng01 .20 |
 | 50 | 10.X.50.0/24 | Field Controllers (L1) | ww-plc01 .10, ww-plc02 .20, ww-rtu03 .30 |
@@ -54,6 +55,7 @@ Cedar River ──► Intake PS-1 ──24" raw main──► Cedar Ridge WTP �
 |---|---|---|---|---|
 | 1 | WireGuard (players) | VLAN 10, VLAN 60 | any | "Internet" + scoreboard |
 | 2 | ww-web01 | WireGuard | any | DMZ host egress (reverse shells/C2) |
+| 2b | ww-ws01 (.20.30) | WireGuard | any | phishing beacon egress (C2) |
 | 3 | ww-web01 | ww-fs01 | tcp/445 | CCR report sync (cifs mount) |
 | 4 | ww-web01 | VLAN 20 | tcp/22 | **stale** "CHG-2023-114 temp migration" rule |
 | 5 | VLAN 20 | ww-web01 | tcp/22,80 | staff manage website |
@@ -66,8 +68,31 @@ Cedar River ──► Intake PS-1 ──24" raw main──► Cedar Ridge WTP �
 | 12 | ww-eng01 | VLAN 50 | tcp/502,20256 | engineering (Modbus/TCP + PCOM) |
 
 Internal VLANs (20-50) cannot open connections to WireGuard clients
-(`wireguard_vlan_default: REJECT`). Players must use forward connections and
-tunnels (SSH -L/-D/-J, ligolo-ng, chisel) through their footholds.
+(`wireguard_vlan_default: REJECT`), **except ww-ws01 (.20.30), which may beacon
+out** (flow 2b). Players must use forward connections and tunnels
+(SSH -L/-D/-J, ligolo-ng, chisel) through their footholds.
+
+### Initial-access paths (two parallel entries)
+
+1. **Web (DMZ):** exploit ww-web01 (traversal → SSTI → root) as documented below.
+2. **Phishing (Windows):** the public **Careers** page on ww-web01 accepts resume
+   uploads (`POST /careers/apply`, unauthenticated). The HR workstation **ww-ws01**
+   auto-logs-on as `a.wallace` and runs an "HR Resume Intake" scheduled task that
+   polls `GET http://10.X.10.10/careers/inbox.json`, downloads each new file to
+   Downloads, strips Mark-of-the-Web (`Unblock-File`), and **opens it with
+   `Start-Process` (ShellExecute = a real double-click)** — detonating any
+   double-clickable payload (`.exe/.scr/.vbs/.bat/.cmd/.hta/.lnk/.js`) in the
+   user's session. Operators bring their own payload/C2; the beacon egresses over
+   WireGuard (flow 2b). ww-ws01 sits in Corporate IT (VLAN 20), so a beacon there
+   reaches `ww-fs01`/`ww-it01` on the same subnet with no firewall in the way —
+   a deeper foothold than the DMZ. Defender + SmartScreen are disabled on ws01 so
+   BYO payloads run. Reward: `foothold_phish` on `a.wallace`'s Desktop.
+
+   Careers drop contract (served by ww-web01, consumed by ww-ws01):
+   `POST /careers/apply` (field `resume`, any extension kept) →
+   `GET /careers/inbox.json` (`{"files":[{name,size,mtime}]}`) →
+   `GET /careers/files/<name>` (raw bytes). Uploads stored in
+   `/opt/wwp-portal/uploads`, never executed on web01.
 
 ## 3. Credentials
 
@@ -77,6 +102,7 @@ tunnels (SSH -L/-D/-J, ligolo-ng, chisel) through their footholds.
 | ww-web01 | Flask `SECRET_KEY` | `ww_portal_secret_key` | `/opt/wwp-portal/.env` via LFI |
 | ww-web01 → ww-fs01 | `svc_ccrsync` | `ww_ccrsync_password` (`CCRsync#Feb2019`) | `/root/.smbcredentials-ccr` |
 | ww-it01 | `j.alvarez` | `ww_newhire_password` (`WaterWorks2026!`) | pattern in FS01 `Public/IT_Helpdesk/New_Hire_IT_Checklist.txt` + hire date in `Staff_Directory.csv` |
+| ww-ws01 | `a.wallace` | `ww_ws_victim_password` (`Autumn2026!Review`) | autologon (Winlogon registry); not needed to attack — the beacon runs as this user |
 | ww-it01 → ww-jump01 | `d.whitfield` | ed25519 key (no passphrase) | `/home/d.whitfield/.ssh/id_ed25519` (root needed) |
 | ww-jump01 | `hydra_vendor` | via `sudo -u hydra_vendor less /opt/hydra/logs/*` escape | `sudo -l` as d.whitfield |
 | ww-jump01 → ww-eng01 | `hydra_vendor` | ed25519 key | `/home/hydra_vendor/.ssh/id_ed25519` |
@@ -93,6 +119,7 @@ Format `WTR{...}`. Values live **only** in `range.yaml → global_role_vars.ww_f
 
 | Key | Pts | Category | Host | Location / trigger |
 |---|---|---|---|---|
+| `foothold_phish` | 150 | Initial Access | ww-ws01 | `C:\Users\a.wallace\Desktop\flag.txt` (after the uploaded "resume" detonates and you have the beacon) |
 | `web_recon` | 50 | Recon | ww-web01 | HTML comment on `/staging/` (disallowed in robots.txt) |
 | `web_lfi` | 100 | Initial Access | ww-web01 | `/opt/wwp-portal/.env` via `/reports/download?file=` traversal |
 | `web_rce` | 150 | Initial Access | ww-web01 | `/home/wwp-web/flag.txt` (SSTI in admin notice preview) |

@@ -7,7 +7,7 @@ server {
     access_log /var/log/nginx/wwp_access.log;
     error_log  /var/log/nginx/wwp_error.log;
 
-    client_max_body_size 4m;
+    client_max_body_size 26m;
 
     location / {
         proxy_pass http://127.0.0.1:8000;
