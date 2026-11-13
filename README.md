@@ -102,12 +102,6 @@ There are **22 flags** (format `WTR{...}`) worth 4,200 points, grouped by catego
 Recon · Initial Access · Privilege Escalation · Lateral Movement · OT DMZ ·
 OT Access · OT Recon · **Impact** · Intel
 
-There are **two ways in**: pop the public web app on `ww-web01`, **or** phish the
-company — the public **Careers** page takes resume uploads, and an HR user on the
-Windows workstation `ww-ws01` opens whatever is submitted. Drop a double-clickable
-payload (`.exe/.scr/.vbs/.bat/.cmd/.hta/.lnk`) with your own C2, catch the beacon,
-and you land straight inside Corporate IT. Either foothold leads to the rest.
-
 - **Scoreboard:** `http://<10.x.60.10>` (also `http://scoreboard.range`). Register
   a team, read each challenge's objective, and submit flags there. The board shows
   first bloods, per-category progress, and the live rankings.
@@ -126,7 +120,7 @@ The scoreboard host (`ww-score`, VLAN 60) and the range router are **out of scop
 2. Get your WireGuard config from Ludus: `ludus user wireguard --range waterworks`
    (or from your Ludus admin) and bring up the tunnel.
 3. Browse to the scoreboard and to `http://waterworkspipeline.com`
-   (the range DNS resolves it to `ww-web01`), and begin.
+   (the range DNS resolves it to `ww-web01` but must be set in wg config), and begin.
 
 Bring your own machine (Kali/your C2). No attacker VM is provisioned; `ww-web01` and `ww-ws01` are
 allowed to call back out to you over the VPN for reverse shells and tunneling (default for Ludus/Proxmox is 198.51.100.X).
