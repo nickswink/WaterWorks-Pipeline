@@ -94,7 +94,8 @@ After deploy finishes:
 ludus range list --range waterworks
 
 # From a WireGuard-connected client, the only directly reachable targets:
-curl -skI http://waterworkspipeline.com            # ww-web01 (DMZ)
+curl -skI http://10.X.10.10                        # ww-web01 (DMZ)
+curl -skI http://waterworkspipeline.com            # ww-web01 (if you set DNS in wireguard config)
 curl -sI  http://<10.x.60.10>/healthz              # ww-score scoreboard
 ```
 
@@ -103,7 +104,7 @@ pivot point, so run them from the matching host once you've landed):
 
 | Service | Host | Check |
 |---------|------|-------|
-| Website | ww-web01 | `curl -s http://waterworkspipeline.com/robots.txt` |
+| Website | ww-web01 | `curl -s http://10.X.10.10/robots.txt` |
 | Scoreboard | ww-score | open `http://<10.x.60.10>` and register a team |
 | File server | ww-fs01 | `smbclient -L //10.x.20.10 -N` |
 | Historian | ww-hist01 | `curl -s http://10.x.30.10:8080/login` (from VLAN 20) |
