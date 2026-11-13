@@ -128,7 +128,7 @@ The scoreboard host (`ww-score`, VLAN 60) and the range router are **out of scop
 3. Browse to the scoreboard and to `http://waterworkspipeline.com`
    (the range DNS resolves it to `ww-web01`), and begin.
 
-Bring your own machine (Kali/your C2). No attacker VM is provisioned; `ww-web01` is
+Bring your own machine (Kali/your C2). No attacker VM is provisioned; `ww-web01` and `ww-ws01` are
 allowed to call back out to you over the VPN for reverse shells and tunneling (default for Ludus/Proxmox is 198.51.100.X).
 
 ---
@@ -146,6 +146,13 @@ allowed to call back out to you over the VPN for reverse shells and tunneling (d
 | [deploy.sh](deploy.sh) | One-command deploy (`./deploy.sh`, uses `--range waterworks`) |
 | [docs/DESIGN.md](docs/DESIGN.md) | Builder's spec: every IP, credential, register & flag (**spoilers**) |
 | `roles/` | Custom Ansible roles that build each host |
+
+---
+
+## Disclaimer
+
+This Ludus range was created almost entirely with Claude. If you don't like that then I'm sorry.
+We can and should be using AI to become better learners.
 
 ---
 
